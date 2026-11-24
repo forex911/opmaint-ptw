@@ -20,3 +20,9 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Description**: Route handlers, session cookies, permit CRUD, stats, lazy expiry middleware, sweeper jobs, extensions, and conflict detection will be wired in upcoming stages.
 - **Severity**: Low (by design per stage work order).
 - **Status**: Stage 3 (Auth/middleware), Stage 5 (Permits), Stage 6 (Expiry), Stage 7 (Extensions/Conflicts).
+
+### 4. Stateless JWT Logout without Distributed Blocklist
+- **Description**: Calling `POST /api/auth/logout` clears the client's `httpOnly` session cookie. However, because JWT verification is stateless, an unexpired token if exfiltrated prior to logout remains cryptographically valid until its 8-hour window expires (or until the user is deactivated in the database).
+- **Severity**: Low / Standard stateless JWT behavior.
+- **Mitigation & Future Scope**: The JWT carries only user ID and `requireAuth` queries the active database user on every request, ensuring deleted/deactivated users are immediately rejected. A token denylist (e.g. in Redis) or rotating refresh tokens can be introduced if instant revocation is required.
+

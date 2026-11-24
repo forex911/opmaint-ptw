@@ -165,3 +165,54 @@ This log records every architectural decision, rejected alternative, and trade-o
   - *Consequence of Area Ownership Change*: If plant administration reassigns area ownership while permits are pending approval, existing approval rows preserve the snapshot user ID. An incoming owner or an `ADMIN` must either: (1) sign off under administrative authority, or (2) execute an administrative approval reassignment that updates `permit_approvals.required_user_id` with an explicit `audit_log` entry. The state machine transition guard strictly blocks any other user from approving the row, preventing unauthorized approvals without an audit trail.
 - **Status**: Accepted
 
+---
+
+### D-015 Initial Schema Finalization during Pre-Release & Strict Append-Only Migrations from Stage 3
+- **Context**: During Stage 2b review (`stage/02b-fixes`), `0000_initial_schema.sql` was amended to include `ON DELETE RESTRICT` on `audit_log.permit_id`, a statement-level truncate trigger, the `ptw_app_user` role, and permit type check constraints. Because this occurred during pre-release development before production deployment, `0000_initial_schema.sql` was updated in-place alongside `0001_permit_type_check.sql` to ensure empty databases initialize with all constraints intact.
+- **Options considered**:
+  - *Option A*: Continue permitting edits to older migration files as new schema requirements arise.
+  - *Option B*: Treat `0000_initial_schema.sql` and `0001_permit_type_check.sql` as the final pre-release baseline. From Stage 3 onwards, all database schema modifications, trigger updates, and constraint additions must strictly be authored as new, forward-only, numbered migrations (e.g. `0002_...sql`).
+- **Decision**: Option B — Strict append-only migration policy from Stage 3 onward.
+- **Consequences**: Existing databases tracking migrations via `_migrations` table are guaranteed never to experience schema drift or missed migration steps.
+- **Status**: Accepted
+
+---
+
+### D-016 Cookie-Only Authentication & Cross-Origin Proxy Deployment Architecture
+- **Context**: In an industrial safety system, authentication tokens must be protected from client-side script theft (XSS). Browser storage (`localStorage`/`sessionStorage`) is vulnerable to script exfiltration, whereas `httpOnly` cookies prevent JavaScript access.
+- **Options considered**:
+  - *Option A*: Dual authentication via `Authorization: Bearer <token>` and cookies.
+  - *Option B*: Cookie-only authentication using an `httpOnly`, `SameSite=Lax` cookie, requiring the frontend to proxy `/api` requests on the same origin.
+- **Decision**: Option B — Strictly cookie-only authentication with zero Bearer fallback.
+- **Deployment & Cross-Origin Topology**:
+  - *Primary Deployment Model (Same-Origin Reverse Proxy)*:
+    The frontend web tier proxies all `/api/*` requests to the backend service. Because requests are same-origin from the browser's perspective:
+    - Cookie is configured with `httpOnly: true`, `SameSite: 'Lax'`, `Path: '/'`, `Secure: process.env.NODE_ENV === 'production'`.
+    - No third-party cookie restrictions or browser partitioning issues occur.
+    - Example Vercel / Next.js rewrite configuration (`vercel.json` or `next.config.js`):
+      ```json
+      {
+        "rewrites": [
+          { "source": "/api/:path*", "destination": "https://api.cmms.local/api/:path*" }
+        ]
+      }
+      ```
+    - Example Nginx / Reverse Proxy configuration:
+      ```nginx
+      location /api/ {
+        proxy_pass http://api_backend:4000/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+      }
+      ```
+  - *Fallback Cross-Origin Deployment Model (Separate Domains)*:
+    If the frontend and backend are hosted on distinct domains without a reverse proxy (e.g. `app.cmms.com` and `api.cmms.com`):
+    - Cookie attributes must be set to `SameSite: 'None'`, `Secure: true`.
+    - CORS configuration must set explicit origin (`CORS_ORIGIN=https://app.cmms.com`) and `credentials: true` (wildcard `*` is prohibited with credentials).
+    - *CSRF Defense-in-Depth*: Because `SameSite=None` allows cross-site request inclusion, non-GET mutating endpoints (`POST`, `PUT`, `DELETE`) must enforce CSRF mitigations, such as requiring a custom request header (e.g. `X-Requested-With: XMLHttpRequest` or an explicit CSRF token header) which cannot be forged across origins by standard HTML forms without CORS preflight authorization.
+- **Consequences**: Complete elimination of client-side token exposure to XSS while maintaining clean same-origin routing.
+- **Status**: Accepted
+
+
