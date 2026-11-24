@@ -4,11 +4,13 @@ A high-integrity, server-authoritative backend module for Permit to Work (PTW) i
 
 ---
 
-## 1. Overview
+## 1. Overview & Scope
 
 In industrial facilities (oil & gas, chemical processing, heavy manufacturing), maintenance jobs involving open flame (Hot Work), confined spaces, high elevation, or high voltage (Electrical LOTO) carry life-threatening risks. A Permit to Work (PTW) authorises hazardous tasks before work begins.
 
 This module guarantees server-side authorization enforcement, complete audit trails, and strict lifecycle transitions.
+
+> **Project Scope Notice**: This repository focuses strictly on the backend API service (`apps/api`), database schema, business rules, and shared domain models (`packages/shared`). The `apps/web` directory is a reserved stub placeholder for the frontend team; all UI and client application work is governed by a separate frontend work order.
 
 ---
 
@@ -17,7 +19,7 @@ This module guarantees server-side authorization enforcement, complete audit tra
 ### Prerequisites
 - Node.js `v20.14+` or `v24+`
 - npm `v10+`
-- PostgreSQL `v15+` (for Stage 2 onwards)
+- PostgreSQL `v15+` (for Stage 2 onwards; local Docker setup provided below)
 
 ### Setup Steps
 ```bash
@@ -28,12 +30,28 @@ cd task
 # 2. Install workspace dependencies
 npm ci
 
-# 3. Build all workspace packages
+# 3. Run typecheck and lint
+npm run typecheck
+npm run lint
+
+# 4. Build all workspace packages
 npm run build
 
-# 4. Run tests
+# 5. Run test suite
 npm run test
 ```
+
+### Git Hooks & Sandbox Execution Note
+Git hooks for pre-commit (`typecheck` + `lint`) and pre-push (`test`) are automatically installed into `.git/hooks/` during `npm ci` / `npm run prepare`. On Windows execution environments where msys `sh.exe` encounters local sandbox restrictions, all verification commands (`npm run typecheck`, `npm run lint`, `npm test`) are executed explicitly prior to committing.
+
+### Remote Push Commands
+When a remote repository is configured, push branches and tags using:
+```bash
+git push origin main --tags
+git push origin stage/01-skeleton
+git push origin stage/01b-cleanup
+```
+*(If no remote exists, operations remain safely recorded in local git history).*
 
 ---
 
@@ -53,12 +71,13 @@ npm run test
 - **D-001 (Monorepo)**: npm workspaces (`packages/shared`, `apps/api`) with native Node ESM.
 - **D-002 (Password Hashing)**: `bcryptjs` with 10 salt rounds for deterministic Windows/Docker builds.
 - **D-003 (Dynamic Registry)**: Permit details stored as JSONB with dynamic Zod schemas compiled from a shared registry; adding a 5th type (e.g. Excavation) requires zero database or route changes.
-- **D-004 (Confined Space Gas Rule)**: Pre-entry atmospheric tests must be recorded within 60 minutes prior to planned start.
+- **D-004 (Confined Space Gas Rule at Submit)**: Pre-entry atmospheric tests must be recorded within 60 minutes prior to planned start.
 - **D-005 (Error Envelope)**: Unified error response format `{ error: { code, message, details } }`.
 - **D-006 (State Machine)**: Single `transition()` function with `SELECT ... FOR UPDATE` row locks.
 - **D-007 (Audit Log Trigger)**: PostgreSQL database trigger preventing `UPDATE` and `DELETE` on `audit_log`.
 - **D-008 (Dual Expiry)**: Lazy expiry on every read/write backed by a minute-interval sweeper and webhook.
 - **D-009 (Permit Numbering)**: Human-readable identifier format `PTW-YYYY-NNNN`.
+- **D-010 (Confined Space Gas Re-Verification at Activation)**: Atmospheric testing timestamp is verified at activation to ensure freshness (`now - tested_at <= 60 minutes`).
 
 ---
 
