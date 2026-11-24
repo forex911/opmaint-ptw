@@ -8,7 +8,7 @@ import { getNextPermitNumber } from './client.js';
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   process.env.DATABASE_URL ||
-  'postgres://postgres@localhost:5433/ptw_cmms';
+  'postgres://postgres@localhost:5433/ptw_cmms_test';
 
 describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
   let pool: pkg.Pool;
