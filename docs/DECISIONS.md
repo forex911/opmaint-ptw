@@ -226,5 +226,28 @@ This log records every architectural decision, rejected alternative, and trade-o
 - **Consequences**: Guarantees reproducible, offline-capable builds for industrial safety environments without relying on third-party supply chain downloads. In future production pipelines with full npm access, swapping to external packages requires only changing the middleware import statements.
 - **Status**: Accepted
 
+---
+
+### D-018 Audit Actor Attribution for Automated System Actions (Expire Sweeper)
+- **Context**: Automated lifecycle transitions (such as lazy expiry and background sweeper runs) occur without an interactive human session. Regulatory audit logging requires recording these events without spoofing human authorization.
+- **Options considered**:
+  - *Option A*: Set `audit_log.actor_id = NULL` with system action metadata (`action: 'EXPIRE'`, `comment: 'Automated expiry: planned_end window elapsed'`).
+  - *Option B*: Provision a synthetic seeded user (`system@cmms.local`).
+- **Decision**: Option A — Nullable `actor_id` (`NULL`) in `audit_log`.
+- **Consequences**: The database schema explicitly allows `actor_id UUID REFERENCES users(id) ON DELETE SET NULL`. A `NULL` actor unambiguously denotes an automated, non-human system action in compliance audit queries, preventing confusion between automated safety trips and operator interventions.
+- **Status**: Accepted
+
+---
+
+### D-019 Separation of Duties (Four-Eyes Principle) in Multi-Tier Approvals
+- **Context**: In industrial operations, high-hazard permits require multi-tier validation (e.g. Area Owner operational clearance plus Safety Officer risk assessment). If a user holds dual credentials (e.g. an Area Owner who is also an Admin, or a Safety Officer who owns an area), allowing them to satisfy both sign-offs creates a single point of failure.
+- **Options considered**:
+  - *Option A*: Allow users with matching role permissions to sign any eligible approval tier, regardless of prior sign-offs.
+  - *Option B*: Strictly enforce the Four-Eyes Principle: no single user (`actor.id`) can satisfy more than one approval row on the same permit.
+- **Decision**: Option B — Separation of duties enforced by approval transition guards.
+- **Consequences**: Even if an actor possesses multiple administrative or safety roles, once they have approved one tier on a permit, state machine guards block them from approving any other row on that same permit. Hazardous work always requires at least two distinct human reviews.
+- **Status**: Accepted
+
+
 
 

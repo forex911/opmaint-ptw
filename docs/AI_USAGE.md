@@ -69,4 +69,22 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 2 (Stack Trace Leakage in Error Handler)**: Stack traces were originally returned when `NODE_ENV !== 'production'`. In tests (`NODE_ENV === 'test'`), this polluted JSON equality assertions. Adjusted condition to include stack traces strictly during local development (`NODE_ENV === 'development'`).
   - **Correction 3 (Route Registration Order for Test Route)**: Express 404 handler registered before test routes caused test-only routes to return 404. Updated `createApp(configure)` to accept an optional configuration hook executing prior to `notFoundHandler`.
 
+---
+
+## Stage 4: Permit State Machine, Concurrency Row-Locking & Lazy Expiry
+- **AI-Assisted Deliverables**:
+  - Central state machine types in `apps/api/src/modules/permits/state-machine/types.ts`.
+  - 10 pure domain safety guards in `guards.ts` covering self-approval prevention, area owner assignment, separation of duties (D-019), mandatory comments/notes, time windows, submit schema validation, and gas test freshness (D-010).
+  - Declarative `TRANSITION_TABLE` and real-time `getAllowedActions()` calculation in `transitions.ts`.
+  - Transactional `transition()` execution engine in `transition-engine.ts` featuring `SELECT ... FOR UPDATE` row locking, persistent lazy expiry with NULL actor attribution (D-018), multi-tier approval generation (D-014), and conditional transition resolution.
+  - Decision records `D-018` and `D-019` in `docs/DECISIONS.md`.
+  - Unit and matrix integration test suite in `transition.test.ts` (101 test cases).
+  - Concurrency integration test suite in `concurrency.test.ts` (4 test cases).
+- **Human Review & Corrections**:
+  - **Correction 1 (Parallel Test Database Collisions)**: Vitest defaults to running test files in parallel worker threads. Concurrent execution of migrations and seeds across `schema.test.ts`, `auth.test.ts`, and `transition.test.ts` against the single real test database `ptw_cmms_test` produced intermittent race conditions. Configured `fileParallelism: false` in `apps/api/vitest.config.ts` so integration suites run deterministically in sequence.
+  - **Correction 2 (Object Mapping in Test Helper)**: The initial `createTestPermit` test helper returned raw SQL query rows with snake_case properties (`requester_id`, `planned_start`, `planned_end`). The pure guards and `getAllowedActions()` expect camelCase `Permit` domain models. Exported `mapPermitRow` from `transition-engine.ts` and wrapped test query results, restoring property alignment.
+  - **Correction 3 (Vitest .toThrow Assertion Matching)**: Vitest's `expect(...).rejects.toThrow(regex)` inspects `error.message` rather than custom properties like `error.code`. Custom `AppError` instances contain distinct error codes (e.g. `EARLY_ACTIVATION`, `STALE_GAS_TEST`, `MISSING_COMPLETION_NOTES`) while their messages are descriptive sentences. Replaced generic `.toThrow()` checks with structured `try/catch` blocks verifying both `err.statusCode === 409`, `err.code`, and descriptive messages.
+  - **Correction 4 (Sequence Advancement Pattern Match)**: In `apps/api/src/db/seed.ts`, sequence advancement queried `SELECT MAX(SUBSTRING(permit_no FROM '\\d+$')::INTEGER)`. Test permits generated with random hexadecimal suffixes ending in digits (e.g. `PTW-TEST-...-VEV2F4`) caused `\d+$` to match trailing digits (`4`), skewing sequence alignment. Refined the query to strictly match standard production permit numbers (`WHERE permit_no ~ '^PTW-\\d{4}-\\d{4}$'` and `SUBSTRING(permit_no FROM '\\d{4}$')`).
+
+
 

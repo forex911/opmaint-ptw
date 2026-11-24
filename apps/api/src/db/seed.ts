@@ -639,7 +639,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
         'ptw_permit_no_seq', 
         GREATEST(
           11, 
-          COALESCE((SELECT MAX(SUBSTRING(permit_no FROM '\\d+$')::INTEGER) FROM permits), 0)
+          COALESCE((SELECT MAX(SUBSTRING(permit_no FROM '\\d{4}$')::INTEGER) FROM permits WHERE permit_no ~ '^PTW-\\d{4}-\\d{4}$'), 0)
         ), 
         true
       );

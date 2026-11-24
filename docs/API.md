@@ -25,6 +25,12 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
   - `FORBIDDEN_NOT_OWNER`: Action restricted to the permit owner.
 - `404 NOT_FOUND`: Resource does not exist.
 - `409 ILLEGAL_TRANSITION`: State transition not permitted in current state. Details include `{ from, action, allowedActions }`.
+- `409 EARLY_ACTIVATION`: Cannot activate permit before `planned_start`.
+- `409 STALE_GAS_TEST`: For `CONFINED_SPACE` permits, atmospheric gas test must be verified within 60 minutes of activation (D-010).
+- `409 PENDING_APPROVALS`: All approval tiers must be `APPROVED` before activation.
+- `409 MISSING_COMPLETION_NOTES`: Mandatory completion notes required when closing a permit.
+- `409 MISSING_COMMENT`: Mandatory comment required for `reject`, `suspend`, and `cancel`.
+- `409 DUTIES_SEPARATION_VIOLATION`: Same individual cannot sign off multiple approval tiers on the same permit (D-019).
 - `422 VALIDATION_ERROR`: Zod validation failure. Details include `{ path, message, code }[]`.
 
 ---
@@ -129,3 +135,37 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 | `GET` | `/api/permits/:id/audit` | Authenticated | Retrieve ordered timeline of audit events with actor names and diffs |
 | `POST` | `/api/internal/sweep` | Header `X-Sweep-Secret` | Overdue permit sweeper endpoint for external cron jobs |
 | `CRUD` | `/api/admin/*` | `ADMIN` | Administration CRUD for users, plants, areas, and equipment |
+
+---
+
+## State Machine Engine (Stage 4)
+
+The central state machine controls all permit lifecycle transitions.
+All mutations execute inside a PostgreSQL transaction using `SELECT ... FOR UPDATE` row-level locking.
+
+### Transition Table
+
+| Action | Allowed From Statuses | Target Status | Permitted Roles | Required Guards |
+|---|---|---|---|---|
+| `submit` | `DRAFT` | `PENDING_APPROVAL` | `REQUESTER`, `ADMIN` | Requester ownership, Window check (`end > start`), Submit schema validation (gas test, precautions) |
+| `approve` | `PENDING_APPROVAL` | `APPROVED` (or remains `PENDING_APPROVAL`) | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | No self-approval, Area Owner assignment, Pending tier exists, Separation of duties (D-019) |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | No self-action, Area Owner assignment, Mandatory comment |
+| `activate` | `APPROVED` | `ACTIVE` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership, Current time within window (`start <= now < end`), All approvals `APPROVED`, Confined Space gas test <= 60m (D-010) |
+| `suspend` | `ACTIVE` | `SUSPENDED` | `SAFETY_OFFICER`, `ADMIN` | Mandatory comment/reason |
+| `resume` | `SUSPENDED` | `ACTIVE` | `SAFETY_OFFICER`, `ADMIN` | Not expired (`now < planned_end`) |
+| `close` | `ACTIVE` | `CLOSED` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership, Mandatory completion notes |
+| `verify` | `CLOSED` | `CLOSED_VERIFIED` | `SAFETY_OFFICER`, `ADMIN` | No self-verification (verifier cannot be the permit requester) |
+| `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `SUSPENDED` | `CANCELLED` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership, Mandatory comment |
+| `expire` | `APPROVED`, `ACTIVE`, `SUSPENDED` | `EXPIRED` | `SYSTEM`, `ADMIN` | None (automated lazy expiry or cron sweeper) |
+
+### Persistent Lazy Expiry
+
+When any permit in an expirable status (`APPROVED`, `ACTIVE`, `SUSPENDED`) is accessed for a transition and `now >= planned_end`:
+1. The transition engine updates the permit `status = 'EXPIRED'`, increments `version`, and commits immediately to PostgreSQL.
+2. It writes an audit log entry attributing the action to `SYSTEM` (`actor_id = NULL` per D-018).
+3. If the requested action was not `expire`, the engine returns HTTP 409 `ILLEGAL_TRANSITION` explaining that the permit has expired.
+
+### Dynamic Allowed Actions Calculation
+
+`getAllowedActions(permit, actor, approvals, now)` computes the real-time list of valid actions for the given user, state, and timestamp without mutating database state. This array is included in permit details and in all 409 error payloads so the user interface can render active affordances dynamically.
+

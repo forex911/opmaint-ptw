@@ -174,3 +174,60 @@ This append-only log tracks every stage, unit of work, verification result, and 
 - **Decisions**:
   - D-017 (In-Tree Zero-Dependency Security Headers & Rate Limiting).
 - **Next**: Merge into main, tag `stage-03b`, and proceed to Stage 4 on `stage/04-state-machine`.
+
+---
+
+## [2026-11-24 18:30] stage-04 / Permit State Machine, Concurrency Row-Locking & Lazy Expiry
+- **Goal**: Implement the industrial-grade central state machine transition engine for permits. Ensure server-side enforcement, transactional `SELECT ... FOR UPDATE` row locking, declarative transition tables, pure unit-testable guards, persistent lazy expiry, multi-tier approvals creation with Area Owner snapshotting (D-014), conditional approval transitions, separation of duties (D-019), and automated audit actor attribution (D-018).
+- **Done**:
+  - Defined types and contracts in `apps/api/src/modules/permits/state-machine/types.ts`: `PermitAction`, `TransitionRule`, `GuardResult`, `TransitionContext`, `Permit`, `PermitApproval`.
+  - Implemented 10 pure, unit-testable guards in `guards.ts` returning `{ ok: boolean, code?: string, message?: string }`:
+    - `guardNoSelfAction`: Prevents requesters from approving, rejecting, or verifying their own permits.
+    - `guardRequesterOwnership`: Restricts actions like submit, cancel, and close to the permit creator (or Admin).
+    - `guardAreaOwnerAssignment`: Ensures Area Owners can only act on pending approval tiers for their assigned area.
+    - `guardPendingApprovalRowExists`: Validates presence of pending approval tiers before allowing approve/reject.
+    - `guardSeparationOfDuties` (D-019 / Four-Eyes Principle): Prevents any single individual (`actor.id`) from satisfying multiple approval tiers on the same permit.
+    - `guardMandatoryComment`: Enforces non-empty comments on `reject`, `suspend`, and `cancel`.
+    - `guardMandatoryCompletionNotes`: Enforces non-empty completion notes when closing an active permit.
+    - `guardWindowDates`: Validates that `planned_end > planned_start`.
+    - `guardSubmitDetails`: Validates permit details against the shared type registry submit schema.
+    - `guardActivation`: Enforces that `now >= planned_start`, all approval tiers are `APPROVED`, and for `CONFINED_SPACE` permits, verifies that the atmospheric gas test reading is within 60 minutes of activation (D-010).
+    - `guardNotExpired`: Validates `now < planned_end`.
+  - Implemented declarative `TRANSITION_TABLE` in `transitions.ts` covering all valid state changes across the 10 domain statuses.
+  - Implemented dynamic `getAllowedActions(permit, actor, approvals, now)` returning the exact real-time affordances for any given user and permit state.
+  - Implemented atomic `transition()` engine in `transition-engine.ts`:
+    - Single database transaction with `SELECT ... FOR UPDATE` row locking to serialize concurrent requests.
+    - Persistent Lazy Expiry: When an expirable permit (`APPROVED`, `ACTIVE`, `SUSPENDED`) is accessed after `planned_end`, it commits `status = 'EXPIRED'` with an automated audit log row (`actor_id = NULL` per D-018) before evaluating the requested action (returning 409 `ILLEGAL_TRANSITION` if the action is not allowed).
+    - Multi-tier approvals creation on `submit`: creates Area Owner tier (snapshotting `required_user_id` per D-014) and Safety Officer tier.
+    - Conditional approval logic: permit remains `PENDING_APPROVAL` with an audit record after intermediate approvals; transitions to `APPROVED` only when all tiers are complete.
+    - Direct terminal transition to `REJECTED` when any tier is rejected.
+    - Automatic version counter increment and immutable audit log insertion in the same transaction.
+  - Implemented exhaustive unit & integration test suite in `transition.test.ts` (101 tests):
+    - Full 100-cell `(Status x Action)` matrix test verifying that all illegal transitions are rejected with HTTP 409 `ILLEGAL_TRANSITION` containing `allowedActions`.
+    - Dynamic `getAllowedActions()` calculation for all roles.
+    - Multi-tier approvals with Area Owner snapshotting (D-014).
+    - Separation of duties (D-019) blocking duplicate signatures by the same actor.
+    - Mandatory comments on reject, cancel, and suspend.
+    - Activation window barrier: early activation rejected before `planned_start`.
+    - Confined Space atmospheric gas test freshness: activation blocked if test > 60 minutes old (D-010).
+    - Persistent lazy expiry: verifies `EXPIRED` status is permanently committed in PostgreSQL even when the caller's action is rejected.
+    - Completion notes enforcement on close, verification by independent safety officer, and suspend/resume cycles.
+  - Implemented concurrency integration test suite in `concurrency.test.ts` (4 tests):
+    - Two simultaneous approvals on the same permit (`Promise.all([approve1, approve2])`): verified row locking serializes execution, both approval tiers transition to `APPROVED`, permit reaches `APPROVED`, and `version` increments from 2 to 4 without lost updates or race conditions.
+    - Concurrent approve (last tier) vs reject (`Promise.allSettled([approve, reject])`): verified exactly one succeeds and the other fails with 409.
+    - Concurrent double activate (`Promise.allSettled([activate1, activate2])`): verified exactly one succeeds, the other receives 409 `ILLEGAL_TRANSITION`.
+    - Concurrent activate vs cancel: verified exactly one succeeds, the other fails with 409.
+- **Commits**:
+  - `640e601` docs: record decision D-018 on system audit actor and D-019 on separation of duties
+  - `21f4746` feat(permits): implement declarative transition table, pure guards, and getAllowedActions
+  - `552c877` feat(permits): implement atomic transition engine with row locking and persistent lazy expiry
+  - `ce873d2` test(permits): add unit and matrix tests for state machine transitions, guards, and getAllowedActions
+  - `5d2bace` test(permits): add concurrency tests for row-locked simultaneous approvals, activations, and cancels
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm test` -> 140/140 tests passing (6 shared + 134 api) against real PostgreSQL database `ptw_cmms_test`.
+- **Decisions**:
+  - D-018 (Automated System Audit Actor with Nullable `actor_id`).
+  - D-019 (Separation of Duties / Four-Eyes Principle for Permit Approvals).
+- **Next**: Merge into main, tag `stage-04`, and proceed to Stage 5 (Permit CRUD, list filters, pagination, stats endpoint, and audit timeline).
