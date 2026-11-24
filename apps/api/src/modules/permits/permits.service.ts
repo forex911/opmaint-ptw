@@ -499,6 +499,44 @@ export class PermitsService {
       params.push(actor.id);
     }
 
+    if (filter.pendingMyApproval) {
+      whereClauses.push(`p.status = $${pIdx++}`);
+      params.push(PermitStatus.PENDING_APPROVAL);
+
+      whereClauses.push(`p.planned_end > NOW()`);
+
+      whereClauses.push(`p.requester_id != $${pIdx++}`);
+      params.push(actor.id);
+
+      const actorIdParam = pIdx++;
+      params.push(actor.id);
+
+      const actorRoleParam = pIdx++;
+      params.push(actor.role);
+
+      whereClauses.push(`
+        NOT EXISTS (
+          SELECT 1 FROM permit_approvals pa_signed
+          WHERE pa_signed.permit_id = p.id AND pa_signed.decided_by = $${actorIdParam}
+        )
+      `);
+
+      whereClauses.push(`
+        EXISTS (
+          SELECT 1 FROM permit_approvals pa
+          WHERE pa.permit_id = p.id
+            AND pa.status = 'PENDING'
+            AND (
+              $${actorRoleParam} = 'ADMIN'
+              OR (
+                pa.required_role = $${actorRoleParam}
+                AND (pa.required_user_id IS NULL OR pa.required_user_id = $${actorIdParam})
+              )
+            )
+        )
+      `);
+    }
+
     const whereSql = whereClauses.join(' AND ');
 
     // Fetch total and records
@@ -535,49 +573,13 @@ export class PermitsService {
     const itemsRes = await pool.query(listQuery, [...params, limit, offset]);
 
     // Map rows and compute allowedActions
-    let items = itemsRes.rows.map((row) => ({
+    const items = itemsRes.rows.map((row) => ({
       ...mapPermitRow(row),
       plantName: row.plant_name,
       areaName: row.area_name,
       equipmentTag: row.equipment_tag,
       requesterName: row.requester_name,
     }));
-
-    // If pendingMyApproval filter was requested: reuse approve guard
-    if (filter.pendingMyApproval) {
-      // Fetch approvals for these permits
-      const permitIds = items.map((i) => i.id);
-      if (permitIds.length > 0) {
-        const appRes = await pool.query(
-          `SELECT * FROM permit_approvals WHERE permit_id = ANY($1::uuid[])`,
-          [permitIds]
-        );
-        const approvalsByPermit = new Map<string, PermitApproval[]>();
-        for (const app of appRes.rows) {
-          const list = approvalsByPermit.get(app.permit_id) || [];
-          list.push({
-            id: app.id,
-            permitId: app.permit_id,
-            requiredRole: app.required_role,
-            requiredUserId: app.required_user_id,
-            status: app.status,
-            decidedBy: app.decided_by,
-            decidedAt: app.decided_at,
-            comment: app.comment,
-            signatureData: app.signature_data,
-          });
-          approvalsByPermit.set(app.permit_id, list);
-        }
-
-        const now = new Date();
-        items = items.filter((item) => {
-          if (item.status !== PermitStatus.PENDING_APPROVAL) return false;
-          const apps = approvalsByPermit.get(item.id) || [];
-          const actions = getAllowedActions(item, actor, apps, now);
-          return actions.includes('approve');
-        });
-      }
-    }
 
     return {
       items,

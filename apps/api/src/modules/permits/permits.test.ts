@@ -462,6 +462,67 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       const mineRes = await requesterAgent.get('/api/permits?mine=true').expect(200);
       expect(mineRes.body.items.length).toBeGreaterThan(0);
     });
+
+    it('paginates pendingMyApproval correctly with accurate total and totalPages across pages', async () => {
+      // Find the area owner user ID
+      const aoUserRes = await pool.query("SELECT id FROM users WHERE email = 'area.owner@cmms.local'");
+      const aoUserId = aoUserRes.rows[0].id;
+
+      // Insert 5 permits in PENDING_APPROVAL that require area owner's approval
+      const insertedIds: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const pNo = `PTW-PAG-TEST-${Date.now()}-${i}`;
+        const pRes = await pool.query(
+          `INSERT INTO permits (
+            permit_no, type, status, requester_id, contractor_team, work_description,
+            plant_id, area_id, equipment_id, planned_start, planned_end, created_at, version
+          ) VALUES (
+            $1, 'HOT_WORK', 'PENDING_APPROVAL',
+            (SELECT id FROM users WHERE email = 'requester@cmms.local'),
+            'Pagination Team', 'Testing pendingMyApproval pagination',
+            $2, $3, $4,
+            NOW() + INTERVAL '2 hours',
+            NOW() + INTERVAL '10 hours',
+            NOW() - INTERVAL '${i} minutes',
+            1
+          ) RETURNING id`,
+          [pNo, plant1Id, area1Id, equipment1Id]
+        );
+        const pId = pRes.rows[0].id;
+        insertedIds.push(pId);
+
+        // Add pending approval row for Area Owner
+        await pool.query(
+          `INSERT INTO permit_approvals (permit_id, required_role, required_user_id, status)
+           VALUES ($1, 'AREA_OWNER', $2, 'PENDING')`,
+          [pId, aoUserId]
+        );
+      }
+
+      // Query page 1 with limit=2 as Area Owner
+      const page1Res = await areaOwnerAgent
+        .get('/api/permits?pendingMyApproval=true&page=1&limit=2')
+        .expect(200);
+
+      expect(page1Res.body.pagination.total).toBeGreaterThanOrEqual(5);
+      expect(page1Res.body.pagination.totalPages).toBeGreaterThanOrEqual(3);
+      expect(page1Res.body.pagination.page).toBe(1);
+      expect(page1Res.body.pagination.limit).toBe(2);
+      expect(page1Res.body.items.length).toBe(2);
+
+      // Query page 2 with limit=2 as Area Owner
+      const page2Res = await areaOwnerAgent
+        .get('/api/permits?pendingMyApproval=true&page=2&limit=2')
+        .expect(200);
+
+      expect(page2Res.body.pagination.page).toBe(2);
+      expect(page2Res.body.items.length).toBe(2);
+
+      // Verify no overlap between page 1 and page 2 items
+      const page1Ids = page1Res.body.items.map((i: any) => i.id);
+      const page2Ids = page2Res.body.items.map((i: any) => i.id);
+      expect(page1Ids.some((id: string) => page2Ids.includes(id))).toBe(false);
+    });
   });
 
   describe('Audit Timeline & System Actor Labeling (GET /api/permits/:id/audit)', () => {
