@@ -89,9 +89,30 @@ export async function transition(
   const client = options.client || (await pool.connect());
   const isDedicatedClient = !options.client;
   const now = options.now || new Date();
+  const savepointName = `sp_${permitId.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+  const rollback = async () => {
+    if (isDedicatedClient) {
+      await client.query('ROLLBACK');
+    } else {
+      await client.query(`ROLLBACK TO SAVEPOINT ${savepointName}`);
+    }
+  };
+
+  const commit = async () => {
+    if (isDedicatedClient) {
+      await client.query('COMMIT');
+    } else {
+      await client.query(`RELEASE SAVEPOINT ${savepointName}`);
+    }
+  };
 
   try {
-    await client.query('BEGIN');
+    if (isDedicatedClient) {
+      await client.query('BEGIN');
+    } else {
+      await client.query(`SAVEPOINT ${savepointName}`);
+    }
 
     // 1. SELECT ... FOR UPDATE row lock on the permit
     const permitRes = await client.query(
@@ -100,7 +121,7 @@ export async function transition(
     );
 
     if (permitRes.rows.length === 0) {
-      await client.query('ROLLBACK');
+      await rollback();
       throw AppError.notFound(`Permit with ID '${permitId}' not found`);
     }
 
@@ -150,7 +171,7 @@ export async function transition(
       );
 
       // Commit the EXPIRED state so it persists permanently in PostgreSQL
-      await client.query('COMMIT');
+      await commit();
 
       // If the caller requested an action other than 'expire', return 409 ILLEGAL_TRANSITION
       if (action !== 'expire') {
@@ -180,7 +201,7 @@ export async function transition(
     );
 
     if (!matchedRule) {
-      await client.query('ROLLBACK');
+      await rollback();
       const allowedActions = getAllowedActions(permit, actor, approvals, now);
       throw new AppError(
         409,
@@ -207,7 +228,7 @@ export async function transition(
     for (const guard of matchedRule.guards) {
       const guardResult = guard(ctx);
       if (!guardResult.ok) {
-        await client.query('ROLLBACK');
+        await rollback();
         const allowedActions = getAllowedActions(permit, actor, approvals, now);
         throw createGuardAppError(guardResult.code, guardResult.message, {
           from: permit.status,
@@ -280,7 +301,7 @@ export async function transition(
       }
 
       if (!targetRow) {
-        await client.query('ROLLBACK');
+        await rollback();
         throw new AppError(409, 'NO_PENDING_APPROVAL', 'No matching pending approval row found');
       }
 
@@ -387,10 +408,10 @@ export async function transition(
       ]
     );
 
-    await client.query('COMMIT');
+    await commit();
     return updatedPermit;
   } catch (error) {
-    await client.query('ROLLBACK');
+    await rollback();
     throw error;
   } finally {
     if (isDedicatedClient) {
