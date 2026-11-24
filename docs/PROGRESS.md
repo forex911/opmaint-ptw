@@ -286,4 +286,4 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm test` -> 162/162 tests passing (6 shared + 156 api) against real PostgreSQL database `ptw_cmms_test`.
 - **Decisions**:
   - D-020 (Universal Read Visibility Model for Plant Safety).
-- **Next**: Merge into main, tag `stage-05`, and plan Stage 5b (Admin CRUD for users, plants, areas, and equipment).
+- **Next**: Deliver Stage 5b review fixes and Stage 5c spec-compliance HTTP test suite, then proceed to Stage 6 (node-cron sweeper and POST /internal/sweep).

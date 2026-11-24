@@ -16,7 +16,7 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Status**: Implemented & verified.
 
 ### 3. HTTP Endpoints & Auth Middleware
-- **Description**: Route handlers, session cookies, and auth middleware implemented in Stage 3. Permit CRUD, list filters, stats, and audit timeline scheduled for Stage 5. Sweeper jobs, extensions, and conflict detection scheduled for Stages 6 and 7.
+- **Description**: Route handlers, session cookies, and auth middleware implemented in Stage 3. Permit CRUD, list filters, stats, and audit timeline implemented in Stage 5. Expiry sweeper scheduled for Stage 6; extensions and conflict detection scheduled for Stage 7.
 - **Status**: Stage 3 (Auth complete), Stage 4 (State machine complete), Stage 5 (Permits in progress).
 
 ### 4. Stateless JWT Logout without Distributed Blocklist
