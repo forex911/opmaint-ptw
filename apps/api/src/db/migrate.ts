@@ -13,7 +13,8 @@ export async function runMigrations(): Promise<void> {
   try {
     console.log('🔄 Running database migrations...');
 
-    // Create migrations table if not exists
+    // Tracks applied migrations in a dedicated table so each script runs exactly once
+    // Table: _migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE, applied_at TIMESTAMPTZ)
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         id SERIAL PRIMARY KEY,
