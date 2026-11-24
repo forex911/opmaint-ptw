@@ -37,6 +37,60 @@ export function isTerminalStatus(status: PermitStatus): boolean {
   return (TERMINAL_PERMIT_STATUSES as readonly string[]).includes(status);
 }
 
+export const PermitAction = {
+  SUBMIT: 'submit',
+  APPROVE: 'approve',
+  REJECT: 'reject',
+  ACTIVATE: 'activate',
+  SUSPEND: 'suspend',
+  RESUME: 'resume',
+  CLOSE: 'close',
+  VERIFY_CLOSURE: 'verify_closure',
+  CANCEL: 'cancel',
+  EXPIRE: 'expire',
+} as const;
+
+export type PermitAction = (typeof PermitAction)[keyof typeof PermitAction];
+
+export const ALL_PERMIT_ACTIONS: readonly PermitAction[] = [
+  PermitAction.SUBMIT,
+  PermitAction.APPROVE,
+  PermitAction.REJECT,
+  PermitAction.ACTIVATE,
+  PermitAction.SUSPEND,
+  PermitAction.RESUME,
+  PermitAction.CLOSE,
+  PermitAction.VERIFY_CLOSURE,
+  PermitAction.CANCEL,
+  PermitAction.EXPIRE,
+] as const;
+
+export const PERMIT_STATUS_LABELS: Record<PermitStatus, string> = {
+  DRAFT: 'Draft',
+  PENDING_APPROVAL: 'Pending Approval',
+  APPROVED: 'Approved',
+  ACTIVE: 'Active',
+  SUSPENDED: 'Suspended',
+  REJECTED: 'Rejected',
+  EXPIRED: 'Expired',
+  CLOSED: 'Closed',
+  CLOSED_VERIFIED: 'Closed (Verified)',
+  CANCELLED: 'Cancelled',
+};
+
+export const PERMIT_ACTION_LABELS: Record<PermitAction, string> = {
+  submit: 'Submit for Approval',
+  approve: 'Approve',
+  reject: 'Reject',
+  activate: 'Activate',
+  suspend: 'Suspend',
+  resume: 'Resume',
+  close: 'Complete Work',
+  verify_closure: 'Verify Closure',
+  cancel: 'Cancel',
+  expire: 'Expire',
+};
+
 export const ApprovalStatus = {
   PENDING: 'PENDING',
   APPROVED: 'APPROVED',
