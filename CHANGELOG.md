@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.0] - 2026-11-24 - Stage 7: Complete Frontend Application Development
+
+### Added
+- Complete React 18 + TypeScript + Vite + Tailwind CSS Frontend Application (`apps/web`):
+  - Premium Industrial Enterprise SaaS design system: Deep Navy sidebar (`#14243A`), Secondary Navy (`#1E344F`), Primary Blue (`#2563EB`), Light Grey canvas (`#F5F7FA`), White surfaces (`#FFFFFF`), Border (`#E2E8F0`), and clear status indicators.
+  - Responsive Application Shell (`Shell.tsx`) with desktop navigation and mobile drawer.
+  - Role-aware navigation: shows only authorized links based on the authenticated user role.
+- Authentication & Centralized Session Management:
+  - `AuthContext.tsx`: HttpOnly cookie session management (`credentials: 'include'`), auto-hydration on load (`GET /api/auth/me`), and role helpers (`isRequester`, `isAreaOwner`, `isSafetyOfficer`, `isAdmin`).
+  - `LoginPage.tsx`: Email/password authentication, password visibility toggle, error alert handling, and one-click reviewer demo account buttons (Requester, Area Owner, Safety Officer, Admin).
+- Operational Dashboard (`DashboardPage.tsx`):
+  - Top operational statistics (Total, Active, Pending Approvals, Expiring in 2 hours, Suspended, Closed).
+  - "Active Right Now" live strip with real-time countdown timers ticking every second.
+  - "Pending My Approval" section displaying permits awaiting the current user's decision (using backend's `pendingMyApproval`).
+  - Recent permit activity stream.
+- Permit Registry & Search (`PermitsListPage.tsx`):
+  - Server-side filtering by query, permit type, status, area, `mine`, and `pendingMyApproval`.
+  - Server-side pagination controls (Previous, Next, Page X of Y, total count).
+  - Dense, readable industrial table on desktop and responsive stacked cards on mobile.
+- Dynamic Form Renderer & Multi-Step Creation:
+  - `DynamicFields.tsx`: Generic, reusable dynamic form renderer driven by `@ptw/shared` registry (`getPermitTypeConfig`). Renders text, number, select, boolean, datetime, list, and multi-gas detector readings.
+  - Real-time gas calibration safety threshold warnings (LEL > 10%, O2 < 19.5% or > 23.5%, H2S > 10 ppm, CO > 35 ppm).
+  - `CreatePermitPage.tsx`: 5-step form stepper (Type selection cards -> Job & cascading Plant/Area/Equipment location -> Dynamic safety details -> Hazards/PPE/Precautions -> Final review).
+  - Dual submit actions: "Save Draft Only" vs "Submit for Approval".
+  - Inline server 422 `VALIDATION_ERROR` mapping directly to form controls.
+- Permit Detail & State Machine Execution (`PermitDetailPage.tsx`):
+  - Header with permit number in prominent mono font, type tile, status pill, and live countdown timer.
+  - Action Panel strictly driven by backend `allowedActions` (users never see unauthorized buttons).
+  - Confirmation modals for state transitions: approve, reject (mandatory comment), activate, suspend (mandatory reason), resume, close (mandatory completion notes), verify closure, and cancel.
+  - Multi-party dual-authorization approval trail (role, reviewer name, status, comment, decision timestamp).
+  - Field work logs history + "Add Work Log" dialog when Active.
+  - Immutable safety audit timeline displaying actor name + role, action, timestamp, comment, and field diff chips.
+- Master Reference Data (`ReferenceDataPage.tsx`):
+  - Administrative view for Plants, Areas (with assigned Area Owners), and Equipment (with Tag Numbers).
+- Automated Frontend Test Suite:
+  - 3 Vitest + React Testing Library test suites in `@ptw/web` (10 tests passing): `StatusBadge.test.tsx`, `DynamicFields.test.tsx`, `LoginPage.test.tsx`.
+
+---
+
 ## [0.6.0] - 2026-11-24 - Stage 6: Background Expiry Sweeper & Internal Endpoints
 
 ### Added

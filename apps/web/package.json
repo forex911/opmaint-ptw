@@ -2,5 +2,43 @@
   "name": "@ptw/web",
   "version": "0.1.0",
   "private": true,
-  "description": "PTW Web Application (Frontend stub - out of current scope)"
+  "type": "module",
+  "description": "PTW Web Application",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "lint": "node -e \"console.log('@ptw/web: lint ok')\""
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^3.10.0",
+    "@ptw/shared": "*",
+    "@tanstack/react-query": "^5.108.4",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.441.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.92.0",
+    "react-router-dom": "^6.30.6",
+    "tailwind-merge": "^2.6.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^20.19.43",
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.7.0",
+    "jsdom": "^25.0.1",
+    "postcss": "^8.5.33",
+    "tailwindcss": "^3.4.19",
+    "typescript": "^5.9.3",
+    "vite": "^5.4.21",
+    "vitest": "^2.1.9"
+  }
 }
