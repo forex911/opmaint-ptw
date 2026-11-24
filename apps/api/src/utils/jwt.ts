@@ -7,20 +7,24 @@ export interface TokenPayload {
 }
 
 /**
- * Signs a stateless JWT carrying ONLY the user ID.
+ * Signs a stateless JWT carrying ONLY the user ID with pinned HS256 algorithm.
  */
 export function signToken(payload: TokenPayload): string {
   return jwt.sign(payload, env.JWT_SECRET, {
+    algorithm: 'HS256',
     expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
   });
 }
 
 /**
  * Verifies a JWT and extracts the user ID.
- * Throws an error if invalid, forged, or expired.
+ * Strictly pins HS256 algorithm to reject 'none' or algorithm confusion attacks.
+ * Throws an error if invalid, forged, algorithm mismatched, or expired.
  */
 export function verifyToken(token: string): TokenPayload {
-  return jwt.verify(token, env.JWT_SECRET) as TokenPayload;
+  return jwt.verify(token, env.JWT_SECRET, {
+    algorithms: ['HS256'],
+  }) as TokenPayload;
 }
 
 /**

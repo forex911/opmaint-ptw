@@ -197,6 +197,20 @@ describe('Auth Module, Role Middleware, & Error Handling', () => {
       expect(res.body.error.message).toBe('Invalid or expired authentication token');
     });
 
+    it('rejects tokens with unpinned algorithms (e.g. none algorithm attack) with 401', async () => {
+      const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
+      const payload = Buffer.from(JSON.stringify({ userId: '00000000-0000-0000-0000-000000000000' })).toString('base64url');
+      const noneAlgToken = `${header}.${payload}.`;
+
+      const res = await request(app)
+        .get('/api/auth/me')
+        .set('Cookie', [`${env.COOKIE_NAME}=${noneAlgToken}`]);
+
+      expect(res.status).toBe(401);
+      expect(res.body.error.code).toBe('UNAUTHORIZED');
+      expect(res.body.error.message).toBe('Invalid or expired authentication token');
+    });
+
     it('returns authenticated user profile and strictly excludes password_hash', async () => {
       const agent = request.agent(app);
 
