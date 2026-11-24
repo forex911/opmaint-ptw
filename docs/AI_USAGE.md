@@ -18,6 +18,20 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Initial Failure 2 (Compiler & Unit Test Failures)**: In commit `cb183ba`, `schema-generator.test.ts` mistakenly imported `validatePermitDetails` from `definitions.ts` instead of `schema-generator.ts`. Additionally, `noUnusedLocals` caught an unused import in `schema-generator.ts`, and `noImplicitAny` flagged untyped lambda parameters in the test.
   - **Commit History Clarification**: Commit `cb183ba` introduced the initial shared package code. The compiler and test errors were resolved in commit `50cb39f` by correcting the import path, cleaning unused types, annotating the test callback parameters, and excluding `**/*.test.ts` from compilation output.
   - **Git Hook Sandbox Behavior**: When running `git commit`, the `.git/hooks/pre-commit` script invoking msys `sh.exe` failed with `NtCreateDirectoryObject: 0xC0000022` due to Windows execution sandbox permissions on named objects. To preserve integrity, typecheck, lint, and unit test suites were explicitly executed in the PowerShell session before committing with `--no-verify`.
-- **Uncertainties & Validations**:
-  - Validated that `bcryptjs` functions deterministically across platforms without native C++ compilation dependencies.
-  - Validated that atmospheric testing timing requires both submission validation (relative to `planned_start`) and activation validation (relative to `now`, recorded in `D-010`).
+
+---
+
+## Stage 2: Database Schema, Migrations, Audit Trigger & Seed Script
+- **AI-Assisted Deliverables**:
+  - Drizzle ORM schema for 10 tables with foreign key constraints, column data types, indexes, and CHECK constraints.
+  - Initial migration `0000_initial_schema.sql` with PostgreSQL sequence `ptw_permit_no_seq` and immutable trigger `trg_audit_log_immutable`.
+  - Migration runner `apps/api/src/db/migrate.ts` with tracking table.
+  - Idempotent seed script `apps/api/src/db/seed.ts` seeding 4 role accounts, 2 Chennai plants, 3 areas, 6 tagged equipment, and 11 permits covering all 10 statuses.
+  - Docker Compose service definition `docker-compose.yml`.
+  - Real PostgreSQL test suite `apps/api/src/db/schema.test.ts`.
+  - Decision records `D-011`, `D-012`, `D-013`.
+- **Human Review & Corrections**:
+  - **Correction 1 (Drizzle 0.33 extraConfig Syntax)**: In Drizzle ORM 0.33, table extra configs must return an object map `{ key: builder }` rather than an array of builders. Updated all schema files accordingly.
+  - **Correction 2 (Audit Log Trigger during Re-Seed)**: The initial seed script attempted `DELETE FROM permits;`. In PostgreSQL, foreign keys on `audit_log` with `ON DELETE SET NULL` caused an internal `UPDATE audit_log SET permit_id = NULL` when permits were deleted. The immutable audit trigger successfully rejected this update. Corrected `seed.ts` to perform non-destructive upserts (`ON CONFLICT (permit_no) DO UPDATE ...`) so audit history is never altered by cascading deletes.
+  - **Correction 3 (Status Coverage in Seed)**: The original 10 permits included two `ACTIVE` permits (one expiring in <2h and one standard) and omitted `APPROVED`. Added an 11th permit with status `APPROVED` so all 10 distinct statuses in `PermitStatus` are represented.
+  - **Correction 4 (Hot Work Gas Test in Seed)**: Corrected permit `PTW-2026-0010` to include valid gas readings so all seeded permits satisfy shared registry validation.

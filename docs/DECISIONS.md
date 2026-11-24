@@ -116,3 +116,36 @@ This log records every architectural decision, rejected alternative, and trade-o
 - **Decision**: Option B — Server-side guard on the `activate` transition verifies that `CONFINED_SPACE` permits have an atmosphere test recorded within 60 minutes prior to activation time.
 - **Consequences**: Workers are strictly protected from entering a confined space based on stale atmosphere measurements, adhering to OSHA 1910.146 and UK HSE confined space entry standards.
 - **Status**: Accepted
+
+---
+
+### D-011 Atomic Human-Readable Permit Number Generation via Sequence
+- **Context**: Permit numbers in format `PTW-YYYY-NNNN` must be generated concurrently without race conditions, duplicates, or gaps caused by transaction rollbacks.
+- **Options considered**:
+  - *Option A*: `SELECT count(*) FROM permits` inside application code (subject to race conditions under concurrent creation).
+  - *Option B*: Dedicated PostgreSQL sequence `ptw_permit_no_seq` formatted atomically via `format('PTW-%s-%s', to_char(CURRENT_DATE, 'YYYY'), lpad(nextval('ptw_permit_no_seq')::text, 4, '0'))`.
+- **Decision**: Option B — PostgreSQL sequence with formatted string query.
+- **Consequences**: Concurrent permit creation never produces colliding permit numbers or lock contention.
+- **Status**: Accepted
+
+---
+
+### D-012 Append-Only Audit Trigger Immutability Enforcement
+- **Context**: Regulatory authorities demand that safety audit logs cannot be modified, even by database administrators or cascading foreign key updates.
+- **Options considered**:
+  - *Option A*: Application-level ORM access controls.
+  - *Option B*: PostgreSQL BEFORE UPDATE OR DELETE trigger on `audit_log` raising an exception `audit_log is append-only: UPDATE and DELETE operations are strictly prohibited`.
+- **Decision**: Option B — Unconditional row-level database trigger in PostgreSQL.
+- **Consequences**: Prevents any UPDATE or DELETE statement from succeeding on `audit_log`. Discovered during testing that foreign keys referencing `permits(id)` must avoid cascading `ON DELETE SET NULL` that would trigger an UPDATE on `audit_log`.
+- **Status**: Accepted
+
+---
+
+### D-013 Permit Approvals Model with Generic Role Assignments & Explicit User Overrides
+- **Context**: Multi-stage industrial authorization requires sign-offs from both specific individuals (e.g., the designated Area Owner of the permit's Area) and general safety roles (e.g., any certified Safety Officer).
+- **Options considered**:
+  - *Option A*: Boolean columns on the `permits` table (`is_approved_by_area_owner`, `is_approved_by_safety`).
+  - *Option B*: Normalized `permit_approvals` table with `required_role`, nullable `required_user_id`, `status` (`PENDING|APPROVED|REJECTED`), `decided_by`, `decided_at`, `comment`, and `signature_data`.
+- **Decision**: Option B — Dedicated `permit_approvals` table.
+- **Consequences**: Allows arbitrary multi-tier approval workflows (Area Owner + Safety Officer + optional type-specific specialists) without altering the core `permits` table.
+- **Status**: Accepted

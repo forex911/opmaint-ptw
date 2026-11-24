@@ -24,9 +24,9 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `c9e9af3` merge: stage 01 skeleton, shared package, and type registry (tag: stage-01)
 - **Verification**:
   - `npm run --workspace=@ptw/shared build` -> tsc compiled clean
-  - `npm run --workspace=@ptw/shared test` -> 6/6 tests passed (HOT_WORK submit/draft, CONFINED_SPACE timing rules, EXCAVATION dynamic registration)
+  - `npm run --workspace=@ptw/shared test` -> 6/6 tests passed
   - `npm run --workspace=@ptw/api build` -> tsc compiled clean
-  - `npm run --workspace=@ptw/api test` -> 1/1 tests passed (env validation)
+  - `npm run --workspace=@ptw/api test` -> 1/1 tests passed
   - Clean clone test from temporary folder: `npm ci`, `npm run build`, `npm run test` passed 100%.
 - **Decisions**:
   - D-001 through D-009.
@@ -43,11 +43,41 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - Documented remote push commands (`git push origin main --tags`, etc.).
   - Clarified `/apps/web` scope boundary in `README.md` and `docs/KNOWN_ISSUES.md`.
 - **Commits**:
-  - Pending merge on branch `stage/01b-cleanup`.
+  - `6d7898d` docs: address stage 1 review feedback and add D-010
+  - `7fb9fdd` docs: complete stage 01b updates including D-010 and rulebook tracking
+  - `1f35355` merge: stage 01b cleanup and D-010 (tag: stage-01b)
 - **Verification**:
   - `npm run typecheck` -> clean across all workspaces.
   - `npm run lint` -> clean across all workspaces.
   - `npm test` -> 7/7 tests passed.
 - **Decisions**:
   - D-010 (Atmosphere test freshness at activation).
-- **Next**: Merge stage-01b, tag stage-01b, then start Stage 2 on `stage/02-schema`.
+- **Next**: Start Stage 2 on `stage/02-schema`.
+
+---
+
+## [2026-11-24 12:45] stage-02 / Database Schema, Migrations, Audit Trigger & Seed Script
+- **Goal**: Implement Drizzle ORM schema for all core tables, write migrations with check constraints and append-only audit trigger, create idempotent seed script (11 permits covering all 10 statuses, 4 roles), provide docker-compose configuration, and write tests on a real test database.
+- **Done**:
+  - Created Drizzle schema definitions for all 10 core tables in `apps/api/src/db/schema/` (`users`, `plants`, `areas`, `equipment`, `permits`, `precautions`, `approvals`, `work-logs`, `extensions`, `audit`).
+  - Implemented initial migration `apps/api/src/db/migrations/0000_initial_schema.sql` including CHECK constraints, `ptw_permit_no_seq` sequence, and PostgreSQL trigger `trg_audit_log_immutable`.
+  - Built database client and connection pool (`apps/api/src/db/client.ts`) with atomic permit number generator.
+  - Created migration runner `apps/api/src/db/migrate.ts` with `_migrations` tracking table.
+  - Created idempotent seed script `apps/api/src/db/seed.ts` seeding 4 users (hashed passwords), 2 Chennai plants, 3 areas, 6 equipment, 11 permits covering all 10 statuses (with valid registry details, approvals, and matching audit events).
+  - Provided `docker-compose.yml` for local PostgreSQL 16 service.
+  - Implemented real PostgreSQL test suite `apps/api/src/db/schema.test.ts` verifying migrations, sequence generation, CHECK constraints, audit trigger immutability, and seed script idempotency.
+- **Commits**:
+  - Staged on `stage/02-schema`.
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm run --workspace=@ptw/api db:migrate` -> Applied `0000_initial_schema.sql` cleanly.
+  - `npm run --workspace=@ptw/api db:seed` -> Seeded 4 users, 2 plants, 3 areas, 6 equipment, 11 permits.
+  - `npm run --workspace=@ptw/shared test` -> 6/6 tests passed.
+  - `npm run --workspace=@ptw/api test` -> 7/7 tests passed (env validation + 6 real DB tests).
+  - Total: 13/13 tests passing against real PostgreSQL database.
+- **Decisions**:
+  - D-011 (Permit sequence numbering format).
+  - D-012 (Append-only audit trigger immutability).
+  - D-013 (Permit approvals model).
+- **Next**: Stage 3 (Auth, role middleware, and error handling).
