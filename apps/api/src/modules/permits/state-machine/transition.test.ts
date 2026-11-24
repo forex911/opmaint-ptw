@@ -572,9 +572,9 @@ describe('State Machine Transitions, Pure Guards & Lazy Expiry', () => {
           { completion_notes: '' },
           { now: new Date('2026-06-01T14:00:00Z') }
         );
-        expect.fail('Should have thrown 409 MISSING_COMPLETION_NOTES');
+        expect.fail('Should have thrown 422 MISSING_COMPLETION_NOTES');
       } catch (err: any) {
-        expect(err.statusCode).toBe(409);
+        expect(err.statusCode).toBe(422);
         expect(err.code).toBe('MISSING_COMPLETION_NOTES');
         expect(err.message).toMatch(/Completion notes are strictly mandatory/i);
       }
