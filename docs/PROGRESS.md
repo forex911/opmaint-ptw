@@ -348,7 +348,7 @@ This append-only log tracks every stage, unit of work, verification result, and 
     - Zero secret leakage: secrets are never logged or returned in responses.
     - Sanitized identical HTTP 401 response for missing or invalid secrets.
   - Comprehensive Test Suite (`sweeper.test.ts`):
-    - 13 real PostgreSQL integration tests covering valid internal sweep, 401s on invalid/missing secrets, automated clock injection, multi-instance concurrency, race conditions with permit extensions, repeated sweeps on already-expired permits, batch savepoint atomicity, invalid cron expression validation, idempotent `startSweeper()`, safe repeated `stopSweeper()`, secret leakage prevention, and simultaneous dashboard read concurrency.
+    - 14 real PostgreSQL integration tests covering valid internal sweep, 401s on invalid/missing secrets, automated clock injection, multi-instance concurrency, race conditions with permit extensions, repeated sweeps on already-expired permits, batch savepoint atomicity, invalid cron expression validation, idempotent `startSweeper()`, safe repeated `stopSweeper()`, secret leakage prevention, simultaneous dashboard read concurrency, and independent Node.js OS worker process concurrency via spawned child processes.
 - **Commits**:
   - `3489cbe` feat(config): validate SWEEP_SECRET minimum 32 characters and add SWEEP_CRON_SCHEDULE in environment schema
   - `bb2e5cc` feat(permits): hold row locks across batch and use savepoints in bulkExpireOverduePermits
@@ -358,7 +358,7 @@ This append-only log tracks every stage, unit of work, verification result, and 
 - **Verification**:
   - `npm run typecheck` -> 0 errors across all workspaces.
   - `npm run build` -> tsc compiled cleanly across all workspaces.
-  - `npm test` -> 180/180 tests passing (6 shared + 174 api) across 8 test suites against real PostgreSQL database `ptw_cmms_test`.
+  - `npm test` -> 187/187 tests passing (6 shared + 181 api) across 9 test suites against real PostgreSQL database `ptw_cmms_test`.
 - **Decisions**:
   - D-022 (Background Expiry Sweeper, Distributed Row-Locking Architecture & Internal Endpoint Security).
 - **Next**: Review and approve Stage 6 report, merge into main, tag stage-06, and wait for approval before Stage 7.

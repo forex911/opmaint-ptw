@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import dotenv from 'dotenv';
 import path from 'path';
+import cron from 'node-cron';
 
 // Load .env file from root or local api folder if present
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
@@ -17,7 +18,12 @@ const envSchema = z.object({
   COOKIE_NAME: z.string().default('ptw_token'),
   COOKIE_SECRET: z.string().min(16).default('cookie-secret-key-industrial-ptw!'),
   SWEEP_SECRET: z.string().min(32, 'SWEEP_SECRET must be at least 32 characters long').default('sweep-secret-cron-token-industrial-ptw!'),
-  SWEEP_CRON_SCHEDULE: z.string().default('* * * * *'),
+  SWEEP_CRON_SCHEDULE: z
+    .string()
+    .default('* * * * *')
+    .refine((val) => cron.validate(val), {
+      message: 'SWEEP_CRON_SCHEDULE must be a valid cron expression (e.g. "* * * * *")',
+    }),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
 });
 

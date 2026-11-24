@@ -27,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Zero secret leakage: secrets are never logged to console/files or echoed in response bodies.
   - Sanitized, identical HTTP 401 `UNAUTHORIZED` responses for missing or mismatched secrets.
 - Comprehensive Test Suite (`sweeper.test.ts`):
-  - 13 real PostgreSQL tests covering valid internal sweep, 401s on invalid/missing secrets, automated clock injection, multi-instance concurrency, race conditions with permit extensions, repeated sweeps on already-expired permits, batch savepoint atomicity, invalid cron expression validation, idempotent `startSweeper()`, safe repeated `stopSweeper()`, secret leakage prevention, and simultaneous dashboard read concurrency.
+  - 14 real PostgreSQL tests covering valid internal sweep, 401s on invalid/missing secrets, automated clock injection, multi-instance concurrency, race conditions with permit extensions, repeated sweeps on already-expired permits, batch savepoint atomicity, invalid cron expression validation, idempotent `startSweeper()`, safe repeated `stopSweeper()`, secret leakage prevention, simultaneous dashboard read concurrency, and independent Node.js OS worker process concurrency via spawned child processes.
 
 ---
 

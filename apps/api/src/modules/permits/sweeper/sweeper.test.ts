@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
 import { app } from '../../../app.js';
 import { getPool, closeDbConnection } from '../../../db/client.js';
 import { runMigrations } from '../../../db/migrate.js';
@@ -412,4 +415,59 @@ describe('Background Expiry Sweeper & Internal Endpoints', () => {
     );
     expect(Number(auditRes.rows[0].count)).toBe(1);
   });
+
+  // 14. Two independent Node.js OS worker processes running concurrently against PostgreSQL
+  it('handles two independent Node.js OS worker processes sweeping concurrently with PostgreSQL locking', async () => {
+    const candidateIds: string[] = [];
+    for (let i = 0; i < 6; i++) {
+      candidateIds.push(await insertOverduePermit('ACTIVE'));
+    }
+
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const workerScript = path.resolve(__dirname, 'sweeper-worker.ts');
+
+    const spawnWorker = () => {
+      return new Promise<{ code: number; stdout: string }>((resolve, reject) => {
+        const proc = spawn('npx', ['tsx', workerScript], {
+          env: {
+            ...process.env,
+            NODE_ENV: 'test',
+          },
+          shell: true,
+        });
+
+        let stdout = '';
+        proc.stdout?.on('data', (d) => { stdout += d.toString(); });
+        proc.stderr?.on('data', (d) => { stdout += d.toString(); });
+
+        proc.on('close', (code) => {
+          resolve({ code: code ?? 0, stdout });
+        });
+        proc.on('error', reject);
+      });
+    };
+
+    // Run two independent operating system processes concurrently against the same PostgreSQL database
+    const [proc1, proc2] = await Promise.all([spawnWorker(), spawnWorker()]);
+
+    expect(proc1.code).toBe(0);
+    expect(proc2.code).toBe(0);
+
+    // Verify all 6 permits are EXPIRED
+    const checkRes = await pool.query(
+      `SELECT id, status FROM permits WHERE id = ANY($1)`,
+      [candidateIds]
+    );
+    expect(checkRes.rows.every((r) => r.status === PermitStatus.EXPIRED)).toBe(true);
+
+    // Verify each permit has strictly ONE audit row
+    for (const id of candidateIds) {
+      const auditCount = await pool.query(
+        `SELECT count(*) FROM audit_log WHERE permit_id = $1 AND action = 'expire'`,
+        [id]
+      );
+      expect(Number(auditCount.rows[0].count)).toBe(1);
+    }
+  }, 25000);
 });
