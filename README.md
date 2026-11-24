@@ -48,6 +48,23 @@ npm run build
 npm run test
 ```
 
+### Production Database & Role Provisioning
+In production and managed PostgreSQL environments (such as AWS RDS, GCP Cloud SQL, Supabase, Neon), executing database users may not have `CREATEROLE` permissions. In those environments, the initial migration gracefully catches `insufficient_privilege` and skips automatic role creation. The DBA should provision the restricted application role and password out-of-band:
+
+```sql
+-- Executed by Database Administrator (DBA)
+CREATE ROLE ptw_app_user WITH LOGIN PASSWORD 'your-secure-app-password';
+GRANT USAGE ON SCHEMA public TO ptw_app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ptw_app_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ptw_app_user;
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM ptw_app_user;
+```
+
+Then configure the application environment:
+- `DATABASE_URL`: `postgres://ptw_app_user:your-secure-app-password@<db-host>:5432/ptw_cmms` (used by the running API).
+- `ADMIN_DATABASE_URL`: `postgres://postgres:<admin-password>@<db-host>:5432/ptw_cmms` (used for `npm run db:migrate` and `db:seed`).
+- Optional: Supply `APP_DB_PASSWORD` during migration execution if the migration connection holds `ALTER ROLE` permissions.
+
 ### Git Hooks & Sandbox Execution Note
 Git hooks for pre-commit (`typecheck` + `lint`) and pre-push (`test`) are automatically installed into `.git/hooks/` during `npm ci` / `npm run prepare`. On Windows execution environments where msys `sh.exe` encounters local sandbox restrictions, all verification commands (`npm run typecheck`, `npm run lint`, `npm test`) are executed explicitly prior to committing.
 

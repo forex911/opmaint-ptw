@@ -146,4 +146,31 @@ This append-only log tracks every stage, unit of work, verification result, and 
 - **Decisions**:
   - D-015 (Pre-release migration baseline and strict append-only policy).
   - D-016 (Cookie-only auth and cross-origin reverse-proxy deployment).
-- **Next**: Merge into main, tag `stage-03`, and await user approval to begin Stage 4 (State Machine & Concurrency Engine).
+- **Next**: Stage 03b follow-ups, then Stage 4.
+
+---
+
+## [2026-11-24 15:20] stage-03b / Stage 3 Review Follow-ups & Hardening
+- **Goal**: Address review follow-ups:
+  1. Record Decision `D-017` and `docs/KNOWN_ISSUES.md` entry for in-tree zero-dependency security middleware.
+  2. Rate limit login keyed by (IP + email), max 10 failed attempts per 15 min, successes not counted, preventing reviewer lockout when switching accounts. Add test.
+  3. Remove hardcoded password from migration, allow `APP_DB_PASSWORD` in env, handle environments where `CREATE ROLE` is not allowed, document for production in `README.md`.
+  4. Confirm `0001_permit_type_check.sql` is guarded (`IF NOT EXISTS`) for clean runs on both fresh and migrated databases.
+  5. Pin HS256 algorithm on `jwt.verify` to block 'none' and algorithm confusion attacks, and add unit test.
+- **Done**:
+  - Recorded Decision `D-017` and updated `docs/KNOWN_ISSUES.md`.
+  - Refactored `loginRateLimiter` to track strictly failed attempts (HTTP 401) keyed by `${clientIp}:${email}` and reset failures on HTTP 200. Added test verifying lockout on 10 failures while preserving immediate access for other accounts.
+  - Updated `0000_initial_schema.sql` to catch `insufficient_privilege` during role creation and removed hardcoded passwords. Updated `migrate.ts` to optionally configure password via `APP_DB_PASSWORD`. Added production role documentation in `README.md`.
+  - Confirmed `0001_permit_type_check.sql` idempotency.
+  - Updated `verifyToken` with `algorithms: ['HS256']` and added unit test asserting rejection of forged unpinned algorithm tokens.
+- **Commits**:
+  - `6b54d0f` docs: record decision D-017 and known issues entry for in-tree security middleware
+  - `f359191` feat(auth): key login rate limiter by IP and email with failure-only tracking
+  - `55a2762` fix(auth): remove hardcoded password from migration, pin HS256 algorithm on JWT verification, and test algorithm pinning
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm test` -> 29/29 tests passing across shared package, schema tests, and auth integration tests against `ptw_cmms_test`.
+- **Decisions**:
+  - D-017 (In-Tree Zero-Dependency Security Headers & Rate Limiting).
+- **Next**: Merge into main, tag `stage-03b`, and proceed to Stage 4 on `stage/04-state-machine`.

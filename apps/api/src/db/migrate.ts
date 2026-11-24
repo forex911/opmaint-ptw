@@ -65,6 +65,17 @@ export async function runMigrations(customPool?: pkg.Pool): Promise<void> {
       }
     }
 
+    // Configure ptw_app_user password from environment variable if provided
+    if (process.env.APP_DB_PASSWORD) {
+      try {
+        const escaped = process.env.APP_DB_PASSWORD.replace(/'/g, "''");
+        await client.query(`ALTER ROLE ptw_app_user WITH PASSWORD '${escaped}';`);
+        console.log('  🔑 Configured ptw_app_user password from APP_DB_PASSWORD');
+      } catch {
+        console.log('  ℹ️  Connection lacks permission to ALTER ROLE ptw_app_user (assumed provisioned by DBA).');
+      }
+    }
+
     console.log('✨ All migrations completed successfully.');
   } finally {
     client.release();

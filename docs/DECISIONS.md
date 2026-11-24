@@ -215,4 +215,16 @@ This log records every architectural decision, rejected alternative, and trade-o
 - **Consequences**: Complete elimination of client-side token exposure to XSS while maintaining clean same-origin routing.
 - **Status**: Accepted
 
+---
+
+### D-017 In-Tree Zero-Dependency Security Headers & Rate Limiting in Restricted Network Environments
+- **Context**: In air-gapped, containerized, or sandboxed execution environments, outbound network requests to the public npm registry (`registry.npmjs.org`) may fail (`ECONNRESET`). Third-party packages such as `helmet` and `express-rate-limit` could not be retrieved from the network.
+- **Options considered**:
+  - *Option A*: Block development or require external internet access to download external packages.
+  - *Option B*: Implement zero-dependency, in-tree TypeScript middleware matching the OWASP security header specifications and sliding-window rate limiting.
+- **Decision**: Option B — Zero-dependency in-tree implementations in `apps/api/src/middleware/helmet.ts` and `apps/api/src/middleware/rate-limit.ts`.
+- **Consequences**: Guarantees reproducible, offline-capable builds for industrial safety environments without relying on third-party supply chain downloads. In future production pipelines with full npm access, swapping to external packages requires only changing the middleware import statements.
+- **Status**: Accepted
+
+
 

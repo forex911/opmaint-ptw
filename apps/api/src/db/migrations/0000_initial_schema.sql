@@ -171,16 +171,25 @@ CREATE TRIGGER trg_audit_log_truncate
 BEFORE TRUNCATE ON audit_log
 FOR EACH STATEMENT EXECUTE FUNCTION audit_log_truncate_prohibited();
 
--- Dedicated application role with restricted privileges
+-- Dedicated application role with restricted privileges (handled gracefully if CREATEROLE is restricted)
 DO $$
 BEGIN
+  -- Attempt role creation if role does not exist and permissions allow
   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ptw_app_user') THEN
-    CREATE ROLE ptw_app_user WITH LOGIN PASSWORD 'ptw_app_pass';
+    BEGIN
+      CREATE ROLE ptw_app_user WITH LOGIN;
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Skipping CREATE ROLE ptw_app_user: current connection lacks CREATEROLE privilege. Role must be provisioned by DBA.';
+    END;
+  END IF;
+
+  -- Grant application privileges if role exists
+  IF EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ptw_app_user') THEN
+    GRANT USAGE ON SCHEMA public TO ptw_app_user;
+    GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ptw_app_user;
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ptw_app_user;
+    REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM ptw_app_user;
   END IF;
 END
 $$;
-
-GRANT USAGE ON SCHEMA public TO ptw_app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ptw_app_user;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ptw_app_user;
-REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM ptw_app_user;
