@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.4.0] - 2026-11-24 - Stage 4: State Machine, Concurrency Row-Locking & Lazy Expiry
+
+### Added
+- Central Permit State Machine transition engine in `apps/api/src/modules/permits/state-machine/`:
+  - `transition-engine.ts`: Core atomic transition execution inside PostgreSQL transactions with `SELECT ... FOR UPDATE` row-level locking.
+  - `transitions.ts`: Declarative `TRANSITION_TABLE` defining legal `(from, to, allowedRoles, guards)` transitions and dynamic `getAllowedActions()`.
+  - `guards.ts`: 10 pure, unit-testable guards enforcing domain safety invariants.
+  - `types.ts`: TypeScript contracts for actions, rules, context, and guard results.
+- Persistent Lazy Expiry:
+  - Automatically identifies overdue permits in `APPROVED`, `ACTIVE`, and `SUSPENDED` states when accessed.
+  - Commits `status = 'EXPIRED'` to PostgreSQL and creates an immutable audit row with `actor_id = NULL` (D-018) even when the caller's action is rejected with 409.
+- Multi-tier Approvals on Submit:
+  - Creates Area Owner approval tier snapshotting the area's current owner user ID (`required_user_id`) at submit time (D-014).
+  - Creates Safety Officer approval tier.
+  - Enforces conditional transition: permit remains in `PENDING_APPROVAL` with intermediate audit logs until all tiers are complete.
+  - Rejection of any tier marks the row and transitions permit directly to `REJECTED`.
+- Separation of Duties (Four-Eyes Principle / D-019):
+  - Server-side guard preventing any single person (`actor.id`) from satisfying multiple approval tiers on the same permit.
+- Safety & Environmental Guards:
+  - Early activation block: prevents activation before `planned_start`.
+  - Atmospheric gas re-verification freshness (D-010): blocks activation of `CONFINED_SPACE` permits if gas test reading is older than 60 minutes.
+  - Mandatory completion notes on closure.
+  - Mandatory reason on rejection, suspension, and cancellation.
+  - Self-action guards: prevents permit requesters from approving, rejecting, or verifying their own permits.
+- Integration & Concurrency Test Suites:
+  - `transition.test.ts` (101 tests): Full 100-cell transition matrix, dynamic allowed-actions calculation, multi-tier approvals, separation of duties, and lazy expiry persistence.
+  - `concurrency.test.ts` (4 tests): Concurrent simultaneous approvals serialized via row locking without lost updates (version increments cleanly from 2 to 4), concurrent approve vs reject race condition handling, concurrent double activation, and concurrent activate vs cancel.
+- Decisions:
+  - `D-018`: System audit actor attribution with nullable `actor_id` for automated lazy expiry and background sweeper jobs.
+  - `D-019`: Separation of duties (Four-Eyes Principle) on permit approvals.
+
+---
+
 ## [0.3.0] - 2026-11-24 - Stage 3: Authentication, Role Middleware, Security Headers & Error Handling
 
 ### Added
