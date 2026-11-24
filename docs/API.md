@@ -43,6 +43,17 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 | `POST` | `/api/auth/logout` | Authenticated | Clear session cookie |
 | `GET` | `/api/auth/me` | Authenticated | Return currently authenticated user profile |
 | `GET` | `/health` | Public | Service health and timestamp check |
+| `GET` | `/api/plants` | Authenticated | List all plants |
+| `GET` | `/api/areas` | Authenticated | List areas (optional `?plantId=<uuid>`) |
+| `GET` | `/api/equipment` | Authenticated | List equipment (optional `?areaId=<uuid>`) |
+| `POST` | `/api/permits` | `REQUESTER`, `ADMIN` | Create a new permit in `DRAFT` status |
+| `GET` | `/api/permits` | Authenticated | List permits with server-side filters and pagination |
+| `GET` | `/api/permits/stats` | Authenticated | Dashboard metrics: byStatus, activeNow, expiringIn2h, pendingMyApproval |
+| `GET` | `/api/permits/:id` | Authenticated | Retrieve permit details, approvals, work logs, and allowedActions |
+| `PATCH` | `/api/permits/:id` | Owner / `ADMIN` | Update permit parameters with optimistic locking (`version`) |
+| `GET` | `/api/permits/:id/audit` | Authenticated | Ordered audit history with "System" attribution (D-018) |
+| `POST` | `/api/permits/:id/work-logs` | Authenticated | Record NOTE, ENTRY, or EXIT log on an ACTIVE permit |
+| `POST` | `/api/permits/:id/:action` | Role & Guard | Execute state transition (`submit`, `approve`, `reject`, `activate`, etc.) |
 
 ---
 
@@ -168,4 +179,178 @@ When any permit in an expirable status (`APPROVED`, `ACTIVE`, `SUSPENDED`) is ac
 ### Dynamic Allowed Actions Calculation
 
 `getAllowedActions(permit, actor, approvals, now)` computes the real-time list of valid actions for the given user, state, and timestamp without mutating database state. This array is included in permit details and in all 409 error payloads so the user interface can render active affordances dynamically.
+
+---
+
+## Implemented Stage 5 Endpoints
+
+### 1. Reference Data Endpoints (D-020 Read Access)
+- **`GET /api/plants`**: Returns all plants (`[{ id, name }]`).
+- **`GET /api/areas?plantId=<uuid>`**: Returns areas with joined area owner details (`ownerId`, `ownerName`, `ownerEmail`).
+- **`GET /api/equipment?areaId=<uuid>`**: Returns tagged equipment units (`[{ id, areaId, tag, name }]`).
+
+### 2. Create Permit
+- **Path**: `POST /api/permits`
+- **Auth**: `REQUESTER` or `ADMIN`
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+  ```json
+  {
+    "type": "HOT_WORK",
+    "plantId": "uuid",
+    "areaId": "uuid",
+    "equipmentId": "uuid",
+    "contractorTeam": "Apex Piping Contractors",
+    "workDescription": "Welding bypass line flange",
+    "plannedStart": "2026-07-01T08:00:00.000Z",
+    "plannedEnd": "2026-07-01T16:00:00.000Z",
+    "hazards": ["Flammable vapor", "Sparks"],
+    "ppe": ["Welding helmet", "Safety boots"],
+    "details": {
+      "hot_work_type": "welding",
+      "fire_watch_assigned": true,
+      "extinguisher_type": "CO2",
+      "combustibles_cleared_radius_m": 15
+    }
+  }
+  ```
+- **Validation**:
+  - Validates location hierarchy: returns 422 `VALIDATION_ERROR` if area not in plant or equipment not in area.
+  - Enforces `plannedEnd > plannedStart`.
+  - Details validated using draft-mode rules (permissive on creation).
+- **Success Response (201 Created)**: Returns `{ permit }` in `DRAFT` status with `version: 1` and sequential `permitNo: "PTW-YYYY-NNNN"`. Writes initial `'create'` audit record.
+
+### 3. List Permits with Filters & Pagination
+- **Path**: `GET /api/permits`
+- **Auth**: Universal Read Access (D-020)
+- **Query Parameters**:
+  - `status`: Filter by `PermitStatus`.
+  - `type`: Filter by `PermitTypeCode`.
+  - `areaId`: Filter by area UUID.
+  - `from`: ISO 8601 string; filters permits where `planned_start >= from`.
+  - `to`: ISO 8601 string; filters permits where `planned_end <= to`.
+  - `mine`: Boolean (`true`); filters permits requested by current user.
+  - `pendingMyApproval`: Boolean (`true`); filters permits currently in `PENDING_APPROVAL` where the current authenticated user has an actionable `approve` transition (reusing the state machine approval guard).
+  - `page`: Integer (default: 1).
+  - `limit`: Integer (default: 20, max: 100).
+  - `sortBy`: `created_at` (default), `planned_start`, `planned_end`, `permit_no`, `status`.
+  - `sortDir`: `asc` or `desc` (default).
+- **Bulk Expiry Guarantee**: Runs `bulkExpireOverduePermits` before querying, ensuring overdue permits are never returned as active.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "items": [...],
+    "pagination": {
+      "total": 42,
+      "page": 1,
+      "limit": 20,
+      "totalPages": 3
+    }
+  }
+  ```
+
+### 4. Dashboard Statistics
+- **Path**: `GET /api/permits/stats`
+- **Auth**: Universal Read Access (D-020)
+- **Bulk Expiry Guarantee**: Bulk-expires overdue permits before aggregating counts.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "byStatus": {
+      "DRAFT": 2,
+      "PENDING_APPROVAL": 3,
+      "APPROVED": 1,
+      "ACTIVE": 4,
+      "SUSPENDED": 1,
+      "REJECTED": 2,
+      "EXPIRED": 5,
+      "CLOSED": 1,
+      "CLOSED_VERIFIED": 3,
+      "CANCELLED": 1
+    },
+    "activeNow": 4,
+    "expiringIn2h": 1,
+    "pendingMyApproval": 2
+  }
+  ```
+
+### 5. Get Permit Details
+- **Path**: `GET /api/permits/:id`
+- **Auth**: Universal Read Access (D-020)
+- **Success Response (200 OK)**: Returns complete permit record joined with `plantName`, `areaName`, `equipmentTag`, `requesterName`, an `approvals` array with decider metadata, active `workLogs`, and dynamically evaluated `allowedActions` for the current user.
+
+### 6. Update Permit (Optimistic Locking & Mass Assignment Protection)
+- **Path**: `PATCH /api/permits/:id`
+- **Auth**: Permit Owner or `ADMIN`
+- **Status Restriction**: Can only update permits in `DRAFT` or `PENDING_APPROVAL`. Any other status returns 409 `ILLEGAL_TRANSITION`.
+- **Headers**: `Content-Type: application/json`
+- **Body**:
+  ```json
+  {
+    "version": 1,
+    "workDescription": "Updated scope",
+    "contractorTeam": "New Contractor Crew"
+  }
+  ```
+- **Optimistic Concurrency**:
+  - `version` is mandatory.
+  - If incoming `version !== current.version`, returns HTTP 409 `VERSION_CONFLICT`.
+  - On update, increments `version = version + 1`.
+- **Mass Assignment Protection**:
+  - Disallowed fields (`status`, `requesterId`, `permitNo`) are strictly rejected with 422 `VALIDATION_ERROR`.
+- **Approval Reset on Pending Edits**:
+  - If edited while in `PENDING_APPROVAL`, existing approval rows in `permit_approvals` are deleted and status resets to `DRAFT` with an audit event logging `'reset_approvals'`.
+- **Audit Logging**: Inserts an `'update'` record in `audit_log` with before/after state diffs.
+- **Success Response (200 OK)**: Returns `{ permit }` with incremented `version`.
+
+### 7. Audit Event Timeline
+- **Path**: `GET /api/permits/:id/audit`
+- **Auth**: Universal Read Access (D-020)
+- **System Actor Labeling**: Formats `actor_id = NULL` events with `actorName: "System"`, `actorRole: "SYSTEM"`, and `actorEmail: "system@cmms.local"` per D-018.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "timeline": [
+      {
+        "id": "uuid",
+        "permitId": "uuid",
+        "actorId": "uuid",
+        "actorName": "Rajesh Kumar",
+        "actorRole": "REQUESTER",
+        "action": "create",
+        "fromValue": null,
+        "toValue": { "status": "DRAFT", "permitNo": "PTW-2026-0001" },
+        "comment": "Permit drafted",
+        "createdAt": "2026-07-01T08:00:00.000Z"
+      },
+      {
+        "id": "uuid",
+        "permitId": "uuid",
+        "actorId": null,
+        "actorName": "System",
+        "actorRole": "SYSTEM",
+        "action": "expire",
+        "fromValue": { "status": "ACTIVE" },
+        "toValue": { "status": "EXPIRED" },
+        "comment": "Automated lazy expiry: planned_end window elapsed",
+        "createdAt": "2026-07-01T16:00:00.000Z"
+      }
+    ]
+  }
+  ```
+
+### 8. Work Logs on Active Permits
+- **Path**: `POST /api/permits/:id/work-logs`
+- **Auth**: Authenticated User
+- **Status Guard**: Restricted strictly to `ACTIVE` permits. Non-active permits return 409 `ILLEGAL_TRANSITION`.
+- **Body**:
+  ```json
+  {
+    "kind": "ENTRY",
+    "note": "3 technicians entered tank for visual inspection with multi-gas monitors"
+  }
+  ```
+  - Allowed `kind`: `"NOTE"`, `"ENTRY"`, `"EXIT"` (supports Confined Space attendant logs).
+- **Success Response (201 Created)**: Returns `{ workLog: { id, permitId, loggedBy, note, kind, createdAt } }`.
+
 

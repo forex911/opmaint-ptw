@@ -255,3 +255,35 @@ This append-only log tracks every stage, unit of work, verification result, and 
 - **Decisions**:
   - D-018 updated (Expirable status coverage includes `PENDING_APPROVAL`, excludes `DRAFT`).
 - **Next**: Merge into main, tag `stage-04b`, and proceed to Stage 5 on `stage/05-permit-endpoints`.
+
+---
+
+## [2026-11-24 19:35] stage-05 / Permit HTTP Endpoints, Filters, Concurrency & Work Logs
+- **Goal**: Implement HTTP routes and controller actions for Permit CRUD, state transitions, reference data, audit timelines, server-side filtering, optimistic concurrency locking, and active work logs.
+- **Done**:
+  - Decision `D-020` (Universal Read Visibility Model): recorded and implemented universal read visibility for all authenticated roles on reference data, permits list/details, statistics, and audit timelines, eliminating spatial safety blindspots while strictly guarding state-mutating actions.
+  - Reference Data Routes: `GET /api/plants`, `GET /api/areas` (filtered by `plantId`), `GET /api/equipment` (filtered by `areaId`) joined with assigned owners.
+  - Location Hierarchy Validation (`permit-validation.service.ts`): server-side verification that equipment belongs to the area and area belongs to the plant, returning HTTP 422 with structured field errors on mismatch.
+  - Bulk Lazy Expiry (`expiry.service.ts`): scans and commits lazy expiry on overdue permits (`PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, `SUSPENDED`) before queries execute, guaranteeing dashboards never display overdue permits as active.
+  - Permit Creation (`POST /api/permits`): restricted to `REQUESTER` and `ADMIN`, verifies location hierarchy, validates draft-mode details schema, generates sequential permit numbers (`PTW-YYYY-NNNN`), and records initial `'create'` audit row.
+  - Optimistic Concurrency & Mass-Assignment Guarded Update (`PATCH /api/permits/:id`): enforces strict Zod whitelist rejecting disallowed fields (`status`, `requesterId`, `permitNo`), requires integer `version` returning HTTP 409 `VERSION_CONFLICT` on mismatch, records field diffs in `audit_log`, and safely resets approvals back to `DRAFT` if edited while `PENDING_APPROVAL`.
+  - Permit Querying & Statistics:
+    - `GET /api/permits`: server-side filtering (`status`, `type`, `areaId`, `from`, `to`, `mine`, `pendingMyApproval`), sorting, and pagination with metadata.
+    - `GET /api/permits/stats`: returns status breakdown, active counts, permits expiring within 2 hours, and dynamic `pendingMyApproval` counts reusing state machine guards.
+  - Audit Event Timeline (`GET /api/permits/:id/audit`): returns chronologically ordered immutable audit records, automatically labeling `actor_id = NULL` events as `"System"` per `D-018`.
+  - Confined Space & Active Work Logs (`POST /api/permits/:id/work-logs`): records `NOTE`, `ENTRY`, and `EXIT` logs on `ACTIVE` permits with attendant accountability, rejecting logs on non-active permits with 409 `ILLEGAL_TRANSITION`.
+  - State Machine HTTP Integration: mounted transition endpoints (`/submit`, `/approve`, `/reject`, `/activate`, `/suspend`, `/resume`, `/close`, `/verify`, `/cancel`) delegating to the transactional state machine engine.
+  - Comprehensive Integration Test Suite (`permits.test.ts`): 19 integration tests verifying reference endpoints, location validation, create, update, optimistic locking, bulk expiry, filter parameters, stats, audit timeline formatting, work logs, and complete end-to-end HTTP lifecycle.
+- **Commits**:
+  - `e1d9537` feat(permits): record D-020 read visibility, add reference data endpoints and guard status mapping
+  - `84c3d57` feat(permits): implement bulk lazy expiry and plant/area/equipment hierarchy validation
+  - `65771a6` feat(permits): implement permit CRUD, filters, pagination, stats, audit timeline, and work-logs
+  - `af4ed3a` fix(permits): fix text array serialization, schema exports, and type annotations across permit modules
+  - `ef1a968` test(permits): add comprehensive integration tests for CRUD, filters, stats, versioning, and work-logs
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm test` -> 162/162 tests passing (6 shared + 156 api) against real PostgreSQL database `ptw_cmms_test`.
+- **Decisions**:
+  - D-020 (Universal Read Visibility Model for Plant Safety).
+- **Next**: Merge into main, tag `stage-05`, and plan Stage 5b (Admin CRUD for users, plants, areas, and equipment).

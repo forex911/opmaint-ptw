@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.5.0] - 2026-11-24 - Stage 5: Permit HTTP Endpoints, Server-Side Filtering, Concurrency & Work Logs
+
+### Added
+- Universal Read Visibility Model (`D-020`):
+  - All authenticated roles (`REQUESTER`, `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN`) are permitted read visibility across reference data, permits, dashboard statistics, and audit timelines.
+- Reference Data Endpoints:
+  - `GET /api/plants`: lists all industrial plants.
+  - `GET /api/areas`: lists areas with area owner metadata (supports `?plantId=<uuid>`).
+  - `GET /api/equipment`: lists tagged machinery and equipment (supports `?areaId=<uuid>`).
+- Location Consistency Validation:
+  - `permit-validation.service.ts`: validates equipment is in area and area is in plant, rejecting inconsistencies with 422 `VALIDATION_ERROR`.
+- Bulk Lazy Expiry:
+  - `expiry.service.ts`: automatically scans and bulk-expires overdue permits (`PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, `SUSPENDED`) before queries execute, preventing expired permits from rendering as active.
+- Permit CRUD & Lifecycle Endpoints:
+  - `POST /api/permits`: allows `REQUESTER` and `ADMIN` to draft permits with sequential numbering (`ptw_permit_no_seq`) and initial audit logging.
+  - `GET /api/permits`: server-side filtering (`status`, `type`, `areaId`, `from`, `to`, `mine`, `pendingMyApproval`), sorting, and pagination.
+  - `GET /api/permits/stats`: aggregated counts breakdown by status, active permits, permits expiring in 2 hours, and dynamic `pendingMyApproval` re-using state machine guards.
+  - `GET /api/permits/:id`: detailed view joining plants, areas, equipment, requester, approval tiers, work logs, and dynamically computed `allowedActions`.
+  - `PATCH /api/permits/:id`: updates permit parameters in `DRAFT` or `PENDING_APPROVAL` with optimistic locking (`version`), mass-assignment protection rejecting forbidden fields (`status`, `requesterId`, `permitNo`), audit field diff logging, and approval reset back to `DRAFT` when editing in `PENDING_APPROVAL`.
+  - `GET /api/permits/:id/audit`: ordered immutable audit timeline, labeling NULL actors as `"System"` per `D-018`.
+  - `POST /api/permits/:id/work-logs`: logs `NOTE`, `ENTRY`, or `EXIT` logs on `ACTIVE` permits with attendant tracking.
+  - State Machine Action Routes: mounted HTTP endpoints for all 9 permit transitions (`/submit`, `/approve`, `/reject`, `/activate`, `/suspend`, `/resume`, `/close`, `/verify`, `/cancel`).
+- Comprehensive Integration Test Suite:
+  - `permits.test.ts` (19 integration tests) covering reference endpoints, location validation, create, update, optimistic locking, bulk expiry, filter parameters, stats, audit timeline formatting, work logs, and complete end-to-end HTTP lifecycle.
+
+---
+
 ## [0.4.0] - 2026-11-24 - Stage 4: State Machine, Concurrency Row-Locking & Lazy Expiry
 
 ### Added
