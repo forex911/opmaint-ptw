@@ -4,6 +4,7 @@ const { Pool } = pkg;
 import { runMigrations } from './migrate.js';
 import { seedDatabase } from './seed.js';
 import { getNextPermitNumber } from './client.js';
+import { ALL_USER_ROLES, ALL_PERMIT_STATUSES, PermitTypeCode } from '@ptw/shared';
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
@@ -193,5 +194,42 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     expect(nextPermitNo).toBe(`PTW-${new Date().getFullYear()}-0012`);
     const existing = await pool.query('SELECT id FROM permits WHERE permit_no = $1', [nextPermitNo]);
     expect(existing.rows.length).toBe(0);
+  });
+
+  it('ensures SQL CHECK value lists strictly equal the shared enums (statuses, roles, permit types)', async () => {
+    const client = await pool.connect();
+    try {
+      const res = await client.query(`
+        SELECT c.conname, pg_get_constraintdef(c.oid) AS def
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE c.contype = 'c'
+          AND c.conname IN ('users_role_check', 'permits_status_check', 'permits_type_check');
+      `);
+
+      const constraints = new Map<string, string>();
+      for (const row of res.rows) {
+        constraints.set(row.conname, row.def);
+      }
+
+      expect(constraints.has('users_role_check')).toBe(true);
+      expect(constraints.has('permits_status_check')).toBe(true);
+      expect(constraints.has('permits_type_check')).toBe(true);
+
+      const extractValues = (def: string): string[] => {
+        const matches = def.match(/'([^']+)'/g);
+        return matches ? matches.map((m) => m.replace(/'/g, '')) : [];
+      };
+
+      const roleValues = extractValues(constraints.get('users_role_check')!);
+      const statusValues = extractValues(constraints.get('permits_status_check')!);
+      const typeValues = extractValues(constraints.get('permits_type_check')!);
+
+      expect([...roleValues].sort()).toEqual([...ALL_USER_ROLES].sort());
+      expect([...statusValues].sort()).toEqual([...ALL_PERMIT_STATUSES].sort());
+      expect([...typeValues].sort()).toEqual([...Object.values(PermitTypeCode)].sort());
+    } finally {
+      client.release();
+    }
   });
 });

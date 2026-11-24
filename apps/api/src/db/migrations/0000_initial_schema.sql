@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS permits (
   CONSTRAINT permits_status_check CHECK (status IN (
     'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ACTIVE', 'SUSPENDED',
     'REJECTED', 'EXPIRED', 'CLOSED', 'CLOSED_VERIFIED', 'CANCELLED'
+  )),
+  CONSTRAINT permits_type_check CHECK (type IN (
+    'HOT_WORK', 'CONFINED_SPACE', 'WORKING_AT_HEIGHT', 'ELECTRICAL_LOTO'
   ))
 );
 CREATE INDEX IF NOT EXISTS permits_status_idx ON permits (status);
