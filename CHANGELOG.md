@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.6.0] - 2026-11-24 - Stage 6: Background Expiry Sweeper & Internal Endpoints
+
+### Added
+- Background Expiry Sweeper (`apps/api/src/modules/permits/sweeper/expiry-sweeper.ts`):
+  - `node-cron` scheduled job running every 60 seconds (`* * * * *`) by default.
+  - In-process overlap prevention (`isSweeping` guard + active sweep promise tracking).
+  - Injectable clock dependency (`clock: () => Date`) enabling deterministic unit and integration tests.
+  - Pluggable scheduler abstraction for custom test scheduler injection.
+  - Graceful server startup and shutdown in `server.ts` awaiting active sweep completion on `SIGTERM` and `SIGINT`.
+- Distributed Row-Locking & Savepoint Transaction Engine:
+  - `bulkExpireOverduePermits` in `expiry.service.ts`: begins outer transaction and locks candidate overdue permits using PostgreSQL `SELECT ... FOR UPDATE SKIP LOCKED`.
+  - Holds row locks continuously on the database connection throughout all candidate transitions and audit writes until outer `COMMIT`.
+  - Per-permit savepoints (`SAVEPOINT sp_<id>`): prevents partial state by ensuring any individual transition failure rolls back that specific candidate without aborting the batch or leaving a transitioned permit missing its audit entry.
+  - Precise response semantics: `{ scanned: number, expiredCount: number, expiredPermitIds: string[] }` strictly guaranteeing `expiredCount === expiredPermitIds.length`.
+- Internal Sweep Endpoint (`POST /internal/sweep`):
+  - Protected by `X-Sweep-Secret` request header matching `SWEEP_SECRET` (minimum 32 characters).
+  - Constant-time secret verification using `crypto.timingSafeEqual` preventing timing side-channel attacks.
+  - Zero secret leakage: secrets are never logged to console/files or echoed in response bodies.
+  - Sanitized, identical HTTP 401 `UNAUTHORIZED` responses for missing or mismatched secrets.
+- Comprehensive Test Suite (`sweeper.test.ts`):
+  - 13 real PostgreSQL tests covering valid internal sweep, 401s on invalid/missing secrets, automated clock injection, multi-instance concurrency, race conditions with permit extensions, repeated sweeps on already-expired permits, batch savepoint atomicity, invalid cron expression validation, idempotent `startSweeper()`, safe repeated `stopSweeper()`, secret leakage prevention, and simultaneous dashboard read concurrency.
+
+---
+
 ## [0.5.0] - 2026-11-24 - Stage 5: Permit HTTP Endpoints, Server-Side Filtering, Concurrency & Work Logs
 
 ### Added

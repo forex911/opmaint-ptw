@@ -16,7 +16,8 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('8h'),
   COOKIE_NAME: z.string().default('ptw_token'),
   COOKIE_SECRET: z.string().min(16).default('cookie-secret-key-industrial-ptw!'),
-  SWEEP_SECRET: z.string().min(16, 'SWEEP_SECRET must be at least 16 characters').default('sweep-secret-cron-token-industrial-ptw!'),
+  SWEEP_SECRET: z.string().min(32, 'SWEEP_SECRET must be at least 32 characters long').default('sweep-secret-cron-token-industrial-ptw!'),
+  SWEEP_CRON_SCHEDULE: z.string().default('* * * * *'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
 });
 

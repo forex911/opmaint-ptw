@@ -54,6 +54,7 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 | `GET` | `/api/permits/:id/audit` | Authenticated | Ordered audit history with "System" attribution (D-018) |
 | `POST` | `/api/permits/:id/work-logs` | Authenticated | Record NOTE, ENTRY, or EXIT log on an ACTIVE permit |
 | `POST` | `/api/permits/:id/:action` | Role & Guard | Execute state transition (`submit`, `approve`, `reject`, `activate`, etc.) |
+| `POST` | `/internal/sweep` | Internal Header | Trigger immediate bulk expiry sweep; protected by `X-Sweep-Secret` |
 
 ---
 
@@ -352,5 +353,44 @@ When any permit in an expirable status (`APPROVED`, `ACTIVE`, `SUSPENDED`) is ac
   ```
   - Allowed `kind`: `"NOTE"`, `"ENTRY"`, `"EXIT"` (supports Confined Space attendant logs).
 - **Success Response (201 Created)**: Returns `{ workLog: { id, permitId, loggedBy, note, kind, createdAt } }`.
+
+---
+
+## Implemented Stage 6 Endpoints: Background Sweeper & Internal Operations
+
+### 9. Immediate Expiry Sweep (Internal Endpoint)
+- **Path**: `POST /internal/sweep`
+- **Auth**: Protected by request header `X-Sweep-Secret` matching `SWEEP_SECRET` (minimum 32 characters, verified using `crypto.timingSafeEqual` constant-time comparison).
+- **Security Invariant**: The secret is never logged or echoed in responses. Mismatched or missing headers return an identical sanitized HTTP 401 response.
+- **Headers**:
+  - `X-Sweep-Secret: <SWEEP_SECRET>`
+- **Response Semantics**:
+  - `scanned`: Total candidate permits examined and row-locked via `SELECT ... FOR UPDATE SKIP LOCKED` during this sweep cycle.
+  - `expiredCount`: Total permits successfully transitioned to `EXPIRED` with audit records written.
+  - `expiredPermitIds`: Array of permit ID strings successfully expired by this execution.
+  - Strictly guarantees: `expiredCount === expiredPermitIds.length`.
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "scanned": 3,
+    "expiredCount": 3,
+    "expiredPermitIds": [
+      "a6f3b0d2-7c3a-4e2b-8a5e-1d6f2c3b4a5e",
+      "b7e4c1e3-8d4b-5f3c-9b6f-2e7a3d4c5b6f",
+      "c8f5d2f4-9e5c-6a4d-0c7a-3f8b4e5d6c7a"
+    ]
+  }
+  ```
+- **Error Responses**:
+  - `401 UNAUTHORIZED`: Returned when `X-Sweep-Secret` is missing, incorrect, or of different buffer length.
+    ```json
+    {
+      "error": {
+        "code": "UNAUTHORIZED",
+        "message": "Invalid or missing sweep secret"
+      }
+    }
+    ```
+
 
 

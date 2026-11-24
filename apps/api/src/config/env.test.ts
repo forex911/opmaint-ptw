@@ -8,6 +8,7 @@ describe('API Environment Configuration', () => {
     expect(env.NODE_ENV).toBeDefined();
     expect(['development', 'production', 'test']).toContain(env.NODE_ENV);
     expect(env.JWT_SECRET.length).toBeGreaterThanOrEqual(32);
-    expect(env.SWEEP_SECRET.length).toBeGreaterThanOrEqual(16);
+    expect(env.SWEEP_SECRET.length).toBeGreaterThanOrEqual(32);
+    expect(env.SWEEP_CRON_SCHEDULE).toBe('* * * * *');
   });
 });
