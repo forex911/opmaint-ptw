@@ -19,7 +19,7 @@ This module guarantees server-side authorization enforcement, complete audit tra
 ### Prerequisites
 - Node.js `v20.14+` or `v24+`
 - npm `v10+`
-- Docker & Docker Compose (or local PostgreSQL 15+)
+- Docker & Docker Compose (PostgreSQL 16) or local PostgreSQL 16+
 
 ### Setup Steps (Windows and Linux)
 Commands are written as individual steps without shell-specific chaining:
