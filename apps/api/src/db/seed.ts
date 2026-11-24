@@ -1,5 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
+import pkg from 'pg';
+const { Pool } = pkg;
+import { env } from '../config/env.js';
 import { getPool, closeDbConnection } from './client.js';
 import {
   PermitTypeCode,
@@ -42,8 +45,9 @@ export const SEED_ACCOUNTS: SeedCredentials[] = [
   },
 ];
 
-export async function seedDatabase(): Promise<void> {
-  const pool = getPool();
+export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
+  const ownPool = !customPool && env.ADMIN_DATABASE_URL ? new Pool({ connectionString: env.ADMIN_DATABASE_URL }) : null;
+  const pool = customPool || ownPool || getPool();
   const client = await pool.connect();
 
   console.log('🌱 Starting idempotent database seeding...');
@@ -657,6 +661,9 @@ export async function seedDatabase(): Promise<void> {
     throw err;
   } finally {
     client.release();
+    if (ownPool) {
+      await ownPool.end();
+    }
   }
 }
 
