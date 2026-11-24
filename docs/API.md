@@ -36,6 +36,79 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 | `POST` | `/api/auth/login` | Public | Authenticate user, set `httpOnly` JWT cookie |
 | `POST` | `/api/auth/logout` | Authenticated | Clear session cookie |
 | `GET` | `/api/auth/me` | Authenticated | Return currently authenticated user profile |
+| `GET` | `/health` | Public | Service health and timestamp check |
+
+---
+
+## Implemented Stage 3 Endpoints
+
+### 1. Health Check
+- **Path**: `GET /health`
+- **Auth**: Public
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "status": "ok",
+    "timestamp": "2026-11-24T15:00:00.000Z"
+  }
+  ```
+
+### 2. User Login
+- **Path**: `POST /api/auth/login`
+- **Auth**: Public (Rate-limited: 5 attempts per 15 minutes per IP)
+- **Headers**: `Content-Type: application/json`
+- **Request Body**:
+  ```json
+  {
+    "email": "requester@cmms.local",
+    "password": "PtwPass2026!"
+  }
+  ```
+- **Success Response (200 OK)**:
+  - Header: `Set-Cookie: ptw_token=<jwt>; HttpOnly; SameSite=Lax; Path=/`
+  ```json
+  {
+    "user": {
+      "id": "uuid-v4",
+      "name": "Rajesh Kumar",
+      "email": "requester@cmms.local",
+      "role": "REQUESTER"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `401 UNAUTHORIZED`: `{ "error": { "code": "UNAUTHORIZED", "message": "Invalid email or password" } }` (Identical response for unknown email and bad password, constant-time comparison).
+  - `422 VALIDATION_ERROR`: `{ "error": { "code": "VALIDATION_ERROR", "message": "Validation failed", "details": { "email": ["Invalid email address format"] } } }`.
+  - `429 RATE_LIMIT_EXCEEDED`: `{ "error": { "code": "RATE_LIMIT_EXCEEDED", "message": "Too many login attempts. Please try again later." } }` with `Retry-After` header.
+
+### 3. User Logout
+- **Path**: `POST /api/auth/logout`
+- **Auth**: Public / Authenticated
+- **Success Response (200 OK)**:
+  - Header: `Set-Cookie: ptw_token=; Max-Age=0; HttpOnly; SameSite=Lax; Path=/`
+  ```json
+  {
+    "message": "Logged out successfully"
+  }
+  ```
+
+### 4. Current User Profile
+- **Path**: `GET /api/auth/me`
+- **Auth**: Authenticated via `httpOnly` cookie (`requireAuth`)
+- **Success Response (200 OK)**:
+  ```json
+  {
+    "user": {
+      "id": "uuid-v4",
+      "name": "Rajesh Kumar",
+      "email": "requester@cmms.local",
+      "role": "REQUESTER"
+    }
+  }
+  ```
+- **Error Response**:
+  - `401 UNAUTHORIZED`: `{ "error": { "code": "UNAUTHORIZED", "message": "Authentication required" } }` (or `"Invalid or expired authentication token"`).
+
 | `GET` | `/api/permits` | Authenticated | List permits with filters (status, type, areaId, from, to, mine, pendingMyApproval) and pagination |
 | `GET` | `/api/permits/stats` | Authenticated | Return aggregated counts (`byStatus`, `activeNow`, `expiringIn2h`, `pendingMyApproval`) |
 | `POST` | `/api/permits` | `REQUESTER`, `ADMIN` | Create new draft permit (permissive validation) |

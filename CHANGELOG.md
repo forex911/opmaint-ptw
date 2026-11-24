@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] - 2026-11-24 - Stage 3: Authentication, Role Middleware, Security Headers & Error Handling
+
+### Added
+- Cookie-only JWT authentication:
+  - `POST /api/auth/login`: Rate-limited endpoint validating credentials, comparing against constant-time dummy hash on unknown email, and setting `httpOnly`, `SameSite=Lax` cookie.
+  - `POST /api/auth/logout`: Clears the session cookie.
+  - `GET /api/auth/me`: Guarded endpoint returning authenticated user identity (never returning password hash).
+- Stateless JWT utilities in `apps/api/src/utils/jwt.ts`: tokens carry only `userId` in payload.
+- Authentication & Authorization middleware:
+  - `requireAuth`: Reads cookie (no Bearer fallback per D-016), decodes token, loads fresh user and active role from database.
+  - `requireRole(...roles)`: Enforces role authorization barriers, returning HTTP 403 on role mismatch.
+- Centralized error handling & validation:
+  - Custom `AppError` class with HTTP status, machine-readable code, and details.
+  - Centralized `errorHandler` enforcing `{ error: { code, message, details? } }` with production stack trace suppression.
+  - Zod request validation middleware returning HTTP 422 `VALIDATION_ERROR` with path-indexed field errors.
+  - 404 route handler returning `{ error: { code: 'NOT_FOUND', message } }`.
+- Operational & Security hardening:
+  - Custom `helmetMiddleware` providing OWASP security response headers.
+  - In-memory sliding window `rateLimiter` (5 attempts / 15 min per IP) on login.
+  - `GET /health` endpoint returning 200 `{ status: 'ok', timestamp }`.
+  - Express `trust proxy` enabled for reverse proxy environments.
+  - Required 32-character `JWT_SECRET` with no default value.
+- Decisions `D-015` (Pre-release migration baseline) and `D-016` (Cookie-only auth and reverse-proxy deployment).
+- Integration test suite in `apps/api/src/modules/auth/auth.test.ts` with 16 comprehensive test cases.
+
+---
+
 ## [0.2.1] - 2026-11-24 - Stage 2b: Database Hardening, Test Isolation, and Constraint Verification
 
 ### Added

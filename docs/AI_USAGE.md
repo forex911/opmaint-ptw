@@ -50,3 +50,23 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 1 (Audit Log Threat Model)**: Clarified that while the application role and standard triggers prevent application-level tampering, database superusers (`postgres`) retain administrative privilege to disable triggers; cloud deployments require separate IAM policies and external write-once audit log sinks.
   - **Correction 2 (Permit Type Check Constraint)**: Identified missing SQL CHECK constraint for permit types in the initial migration; added migration `0001_permit_type_check.sql` and confirmed it matches `@ptw/shared` permit types.
 
+---
+
+## Stage 3: Authentication, Role Middleware, Security Headers & Centralized Error Handling
+- **AI-Assisted Deliverables**:
+  - Custom `AppError` and centralized error handling middleware enforcing `{ error: { code, message, details? } }`.
+  - Request validation middleware returning HTTP 422 `VALIDATION_ERROR` with path-indexed field errors.
+  - Custom `helmetMiddleware` providing OWASP security response headers without external package dependencies.
+  - In-memory sliding window `rateLimiter` (5 attempts / 15 min per IP) on login.
+  - Cookie-only JWT authentication (`signToken`, `verifyToken`) carrying ONLY `userId`; `requireAuth` loads user and role from database on each request.
+  - `authService.login()` with constant-time bcrypt verification against pre-computed `DUMMY_HASH` for unknown emails.
+  - `requireRole` middleware guarding routes by role hierarchy with 403 Forbidden.
+  - `GET /health` endpoint, Express `trust proxy` setting, and 404 route handling.
+  - Integration tests in `apps/api/src/modules/auth/auth.test.ts` (16 test cases).
+  - Decision records `D-015` and `D-016`.
+- **Human Review & Corrections**:
+  - **Correction 1 (Rate Limiting in Test Environment)**: The initial login rate limiter blocked sequential test calls after 5 requests with 429 Too Many Requests; updated rate limiter to relax thresholds during automated test runs (`NODE_ENV === 'test'`).
+  - **Correction 2 (Stack Trace Leakage in Error Handler)**: Stack traces were originally returned when `NODE_ENV !== 'production'`. In tests (`NODE_ENV === 'test'`), this polluted JSON equality assertions. Adjusted condition to include stack traces strictly during local development (`NODE_ENV === 'development'`).
+  - **Correction 3 (Route Registration Order for Test Route)**: Express 404 handler registered before test routes caused test-only routes to return 404. Updated `createApp(configure)` to accept an optional configuration hook executing prior to `notFoundHandler`.
+
+
