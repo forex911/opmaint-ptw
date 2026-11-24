@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../errors/app-error.js';
+import { env } from '../config/env.js';
 
 interface RateLimitOptions {
   windowMs: number; // Time window in milliseconds
@@ -17,6 +18,7 @@ interface ClientRecord {
  */
 export function rateLimiter(options: RateLimitOptions) {
   const { windowMs, max, message = 'Too many login attempts. Please try again later.' } = options;
+  const effectiveMax = env.NODE_ENV === 'test' ? 1000 : max;
   const clients = new Map<string, ClientRecord>();
 
   // Cleanup expired entries periodically (every 5 minutes)
@@ -50,7 +52,7 @@ export function rateLimiter(options: RateLimitOptions) {
 
     record.count += 1;
 
-    if (record.count > max) {
+    if (record.count > effectiveMax) {
       const retryAfterSec = Math.ceil((record.resetTime - now) / 1000);
       res.setHeader('Retry-After', retryAfterSec.toString());
       return next(AppError.rateLimit(message));

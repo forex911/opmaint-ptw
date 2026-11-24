@@ -6,7 +6,7 @@ import { helmetMiddleware } from './middleware/helmet.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 
-export function createApp(): Express {
+export function createApp(configure?: (app: Express) => void): Express {
   const app = express();
 
   // Trust proxy for reverse proxy environments (e.g. Nginx, Vercel, load balancers)
@@ -39,6 +39,11 @@ export function createApp(): Express {
 
   // Mount API routers
   app.use('/api/auth', authRouter);
+
+  // Optional custom configuration (e.g. test-only routes) before 404 handler
+  if (configure) {
+    configure(app);
+  }
 
   // 404 handler for unmatched routes
   app.use(notFoundHandler);

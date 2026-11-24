@@ -67,7 +67,7 @@ export function errorHandler(
       code,
       message,
       ...(details !== undefined ? { details } : {}),
-      ...(env.NODE_ENV !== 'production' && err instanceof Error && err.stack
+      ...(env.NODE_ENV === 'development' && err instanceof Error && err.stack
         ? { stack: err.stack }
         : {}),
     },
