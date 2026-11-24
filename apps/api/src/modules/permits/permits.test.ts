@@ -697,8 +697,8 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       const actRes = await requesterAgent.post(`/api/permits/${pId}/activate`).expect(200);
       expect(actRes.body.permit.status).toBe(PermitStatus.ACTIVE);
 
-      // 6. Close: requires completion notes
-      await requesterAgent.post(`/api/permits/${pId}/close`).send({ completion_notes: '' }).expect(409);
+      // 6. Close: requires completion notes (returns 422 per D-005)
+      await requesterAgent.post(`/api/permits/${pId}/close`).send({ completion_notes: '' }).expect(422);
 
       const closeRes = await requesterAgent
         .post(`/api/permits/${pId}/close`)
