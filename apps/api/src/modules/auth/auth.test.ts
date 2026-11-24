@@ -112,6 +112,45 @@ describe('Auth Module, Role Middleware, & Error Handling', () => {
       expect(res.body.error.details.email).toBeDefined();
       expect(res.body.error.details.password).toBeDefined();
     });
+
+    it('enforces rate limit on 10 failed login attempts per (IP + email), without locking out other accounts or successes', async () => {
+      const targetEmail = 'lockout.target@cmms.local';
+
+      // 1. Send 10 consecutive failed login attempts for targetEmail
+      for (let i = 0; i < 10; i++) {
+        const failRes = await request(app)
+          .post('/api/auth/login')
+          .send({
+            email: targetEmail,
+            password: 'BadPassword!',
+          });
+        expect(failRes.status).toBe(401);
+      }
+
+      // 2. The 11th failed attempt for targetEmail must be blocked with 429 RATE_LIMIT_EXCEEDED
+      const blockedRes = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: targetEmail,
+          password: 'BadPassword!',
+        });
+
+      expect(blockedRes.status).toBe(429);
+      expect(blockedRes.headers['retry-after']).toBeDefined();
+      expect(blockedRes.body.error.code).toBe('RATE_LIMIT_EXCEEDED');
+      expect(blockedRes.body.error.message).toContain('Too many failed login attempts');
+
+      // 3. Confirm that a different account (e.g. requester@cmms.local) from the SAME IP is NOT blocked
+      const otherAccountRes = await request(app)
+        .post('/api/auth/login')
+        .send({
+          email: 'requester@cmms.local',
+          password: 'PtwPass2026!',
+        });
+
+      expect(otherAccountRes.status).toBe(200);
+      expect(otherAccountRes.body.user.email).toBe('requester@cmms.local');
+    });
   });
 
   describe('GET /api/auth/me & requireAuth Middleware', () => {

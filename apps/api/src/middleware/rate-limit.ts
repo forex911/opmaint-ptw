@@ -1,63 +1,77 @@
 import type { Request, Response, NextFunction } from 'express';
 import { AppError } from '../errors/app-error.js';
-import { env } from '../config/env.js';
-
-interface RateLimitOptions {
-  windowMs: number; // Time window in milliseconds
-  max: number; // Maximum attempts per window
-  message?: string;
-}
 
 interface ClientRecord {
   count: number;
   resetTime: number;
 }
 
-/**
- * In-memory sliding rate limiter designed for critical endpoints like login.
- */
-export function rateLimiter(options: RateLimitOptions) {
-  const { windowMs, max, message = 'Too many login attempts. Please try again later.' } = options;
-  const effectiveMax = env.NODE_ENV === 'test' ? 1000 : max;
-  const clients = new Map<string, ClientRecord>();
+interface LoginRateLimitOptions {
+  windowMs?: number; // Time window in milliseconds (default: 15 min)
+  maxFailures?: number; // Maximum failed attempts before blocking (default: 10)
+  message?: string;
+}
 
-  // Cleanup expired entries periodically (every 5 minutes)
-  const interval = setInterval(() => {
+/**
+ * Login rate limiter keyed by (IP + email).
+ * Tracks strictly failed login attempts (HTTP 401).
+ * Successful logins (HTTP 200) do NOT count and clear any accumulated failure count,
+ * ensuring plant reviewers switching between demo accounts are never locked out.
+ */
+export function loginRateLimiter(options: LoginRateLimitOptions = {}) {
+  const windowMs = options.windowMs ?? 15 * 60 * 1000;
+  const maxFailures = options.maxFailures ?? 10;
+  const message =
+    options.message ?? 'Too many failed login attempts for this account. Please try again later.';
+
+  const failures = new Map<string, ClientRecord>();
+
+  // Periodically clean up expired entries (every 5 minutes)
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
-    for (const [ip, record] of clients.entries()) {
+    for (const [key, record] of failures.entries()) {
       if (now > record.resetTime) {
-        clients.delete(ip);
+        failures.delete(key);
       }
     }
   }, 5 * 60 * 1000);
 
-  // Prevent interval from keeping Node process alive in tests
-  if (interval.unref) {
-    interval.unref();
+  if (cleanupTimer.unref) {
+    cleanupTimer.unref();
   }
 
   return (req: Request, res: Response, next: NextFunction): void => {
     const clientIp = req.ip || req.socket.remoteAddress || 'unknown-client';
+    const email =
+      typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : 'anonymous';
+    const key = `${clientIp}:${email}`;
     const now = Date.now();
 
-    const record = clients.get(clientIp);
+    const record = failures.get(key);
 
-    if (!record || now > record.resetTime) {
-      clients.set(clientIp, {
-        count: 1,
-        resetTime: now + windowMs,
-      });
-      return next();
-    }
-
-    record.count += 1;
-
-    if (record.count > effectiveMax) {
+    // If failures have exceeded threshold and the window has not expired, block immediately
+    if (record && now <= record.resetTime && record.count >= maxFailures) {
       const retryAfterSec = Math.ceil((record.resetTime - now) / 1000);
       res.setHeader('Retry-After', retryAfterSec.toString());
       return next(AppError.rateLimit(message));
     }
 
+    // Intercept response finish: only increment on failed authentication
+    res.on('finish', () => {
+      if (res.statusCode === 401) {
+        const cur = failures.get(key);
+        if (!cur || Date.now() > cur.resetTime) {
+          failures.set(key, { count: 1, resetTime: Date.now() + windowMs });
+        } else {
+          cur.count += 1;
+        }
+      } else if (res.statusCode === 200) {
+        // Successful login resets failures for this IP+email pair
+        failures.delete(key);
+      }
+    });
+
     next();
   };
 }
+

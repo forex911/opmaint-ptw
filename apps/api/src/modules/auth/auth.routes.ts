@@ -3,15 +3,15 @@ import { authController } from './auth.controller.js';
 import { validate } from '../../middleware/validate.js';
 import { loginSchema } from './auth.schema.js';
 import { requireAuth } from '../../middleware/auth.js';
-import { rateLimiter } from '../../middleware/rate-limit.js';
+import { loginRateLimiter } from '../../middleware/rate-limit.js';
 
 export const authRouter = Router();
 
-// Rate limiter for login: max 5 requests per 15 minutes per IP
-const loginLimiter = rateLimiter({
+// Rate limiter for login: keyed by IP + email, max 10 failed attempts per 15 min, successes not counted
+const loginLimiter = loginRateLimiter({
   windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: 'Too many login attempts. Please try again later.',
+  maxFailures: 10,
+  message: 'Too many failed login attempts for this account. Please try again later.',
 });
 
 // POST /api/auth/login
