@@ -179,8 +179,10 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     const usersRes = await pool.query('SELECT count(*) AS count FROM users');
     expect(parseInt(usersRes.rows[0].count, 10)).toBeGreaterThanOrEqual(4);
 
-    // Verify 11 permits seeded across all statuses
-    const permitsRes = await pool.query('SELECT count(*) AS count FROM permits');
+    // Verify 11 permits seeded across all statuses (filtering out any non-seed test permits)
+    const permitsRes = await pool.query(
+      "SELECT count(*) AS count FROM permits WHERE permit_no NOT LIKE 'PTW-TEST-%'"
+    );
     expect(parseInt(permitsRes.rows[0].count, 10)).toBe(11);
 
     // Verify all 10 distinct statuses are represented

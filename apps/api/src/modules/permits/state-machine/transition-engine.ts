@@ -27,7 +27,7 @@ export interface TransitionPayload {
 /**
  * Maps raw database snake_case permit row to typed Permit object.
  */
-function mapPermitRow(row: any): Permit {
+export function mapPermitRow(row: any): Permit {
   return {
     id: row.id,
     permitNo: row.permit_no,
