@@ -7,7 +7,7 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: bigserial('id', { mode: 'number' }).primaryKey(),
-    permitId: uuid('permit_id').references(() => permits.id, { onDelete: 'set null' }),
+    permitId: uuid('permit_id').references(() => permits.id, { onDelete: 'restrict' }),
     actorId: uuid('actor_id').references(() => users.id, { onDelete: 'set null' }),
     action: text('action').notNull(),
     fromValue: jsonb('from_value'),

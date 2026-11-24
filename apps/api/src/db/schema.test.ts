@@ -17,6 +17,8 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     pool = new Pool({ connectionString: TEST_DATABASE_URL });
     // Run migrations on the test database
     await runMigrations();
+    // Seed initial data so foreign key references exist for constraint tests
+    await seedDatabase();
   });
 
   afterAll(async () => {
@@ -131,6 +133,35 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
       await expect(
         client.query('DELETE FROM audit_log WHERE id = $1', [auditId])
       ).rejects.toThrow(/audit_log is append-only/);
+    } finally {
+      client.release();
+    }
+  });
+
+  it('enforces append-only audit_log trigger: blocks TRUNCATE operations', async () => {
+    const client = await pool.connect();
+    try {
+      await expect(client.query('TRUNCATE TABLE audit_log')).rejects.toThrow(
+        /audit_log is append-only: TRUNCATE is strictly prohibited/
+      );
+    } finally {
+      client.release();
+    }
+  });
+
+  it('enforces ON DELETE RESTRICT on audit_log.permit_id preventing permit deletion while audit logs exist', async () => {
+    const client = await pool.connect();
+    try {
+      // Find a permit that has audit rows
+      const permitRes = await client.query(
+        'SELECT permit_id FROM audit_log WHERE permit_id IS NOT NULL LIMIT 1;'
+      );
+      if (permitRes.rows.length > 0) {
+        const permitId = permitRes.rows[0].permit_id;
+        await expect(
+          client.query('DELETE FROM permits WHERE id = $1', [permitId])
+        ).rejects.toThrow(/foreign key|violates foreign key constraint/i);
+      }
     } finally {
       client.release();
     }

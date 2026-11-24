@@ -130,13 +130,15 @@ This log records every architectural decision, rejected alternative, and trade-o
 
 ---
 
-### D-012 Append-Only Audit Trigger Immutability Enforcement
-- **Context**: Regulatory authorities demand that safety audit logs cannot be modified, even by database administrators or cascading foreign key updates.
+### D-012 Append-Only Audit Trigger Immutability Enforcement & Threat Model
+- **Context**: Regulatory authorities demand that safety audit logs cannot be modified through normal application operations, ORM updates, or cascading deletions.
 - **Options considered**:
-  - *Option A*: Application-level ORM access controls.
-  - *Option B*: PostgreSQL BEFORE UPDATE OR DELETE trigger on `audit_log` raising an exception `audit_log is append-only: UPDATE and DELETE operations are strictly prohibited`.
-- **Decision**: Option B — Unconditional row-level database trigger in PostgreSQL.
-- **Consequences**: Prevents any UPDATE or DELETE statement from succeeding on `audit_log`. Discovered during testing that foreign keys referencing `permits(id)` must avoid cascading `ON DELETE SET NULL` that would trigger an UPDATE on `audit_log`.
+  - *Option A*: Application-level ORM access controls only.
+  - *Option B*: PostgreSQL BEFORE UPDATE OR DELETE row-level trigger on `audit_log`, plus statement-level BEFORE TRUNCATE trigger, combined with `REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM ptw_app_user`.
+- **Decision**: Option B — Multi-layered defense: row-level `audit_log_immutable()` trigger, statement-level `audit_log_truncate_prohibited()` trigger, `ON DELETE RESTRICT` on `audit_log.permit_id`, and explicit privilege revocation for the application role (`ptw_app_user`).
+- **Consequences & Threat Model**:
+  - *Normal application access*: The application role and standard SQL connections cannot execute `UPDATE`, `DELETE`, or `TRUNCATE` against `audit_log`. Deleting a permit that has audit records is blocked by foreign key restriction (`ON DELETE RESTRICT`).
+  - *Honest Threat Model Limitations*: A PostgreSQL superuser (`postgres`) or the table owner has administrative authority to execute `ALTER TABLE audit_log DISABLE TRIGGER ALL;` or alter permissions directly. In a production cloud topology, DBA access must be restricted via separate cloud IAM credentials and external append-only log archiving.
 - **Status**: Accepted
 
 ---
