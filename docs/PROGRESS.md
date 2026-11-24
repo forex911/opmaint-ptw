@@ -80,4 +80,36 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - D-011 (Permit sequence numbering format).
   - D-012 (Append-only audit trigger immutability).
   - D-013 (Permit approvals model).
-- **Next**: Stage 3 (Auth, role middleware, and error handling).
+- **Next**: Stage 02b review fixes, then Stage 3.
+
+---
+
+## [2026-11-24 13:40] stage-02b / Stage 2 Review Fixes & Schema Hardening
+- **Goal**: Deliver 8 targeted fixes on `stage/02b-fixes`:
+  1. Advance `ptw_permit_no_seq` past seeded numbers via `setval` and verify collision-free uniqueness.
+  2. Harden `audit_log` with statement-level `BEFORE TRUNCATE` trigger, `ON DELETE RESTRICT` on `audit_log.permit_id`, create dedicated `ptw_app_user` application DB role with revoked privileges, add truncate test, and state honest threat model in `D-012`.
+  3. Isolate tests using dedicated `ptw_cmms_test` database via `TEST_DATABASE_URL` and `apps/api/vitest.config.ts`.
+  4. Prove local Docker Compose PostgreSQL 16 container healthy on port 5432, align versions/ports across `.env.example` and `README.md`, and confirm `.env` is gitignored.
+  5. Add test verifying SQL CHECK value lists strictly match shared enums (`users_role_check`, `permits_status_check`, `permits_type_check`) with migration `0001_permit_type_check.sql`.
+  6. Clarify and document that `migrate.ts` tracks applied migrations in `_migrations` table.
+  7. Document Decision `D-014` on area-owner approval user snapshot vs dynamic resolution.
+  8. Standardize regulator inspection wording to "factory safety regulators and auditors".
+- **Commits**:
+  - `28f9a1f` fix(db): advance permit sequence past seeded numbers and verify uniqueness
+  - `540a8d8` fix(db): harden audit_log with truncate trigger, restrict fk, app role privileges, and honest threat model in D-012
+  - `a6b373a` feat(db): isolate test database using ptw_cmms_test via TEST_DATABASE_URL
+  - `5544528 chore(docker): verify docker compose postgres 16 healthy, align versions and verify env gitignored
+  - `e5e1ee9` test(db): verify SQL check constraints match shared package enums
+  - `8e6fc79` docs(db): clarify migration tracking table in migrate.ts
+  - `f4684ef` docs: record decision D-014 on area-owner approval user assignment
+  - `b1b94eb` docs: update regulatory inspection terminology in documentation to factory safety regulators and auditors
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm test` -> 17/17 tests passing across shared and api packages on dedicated `ptw_cmms_test` database.
+  - `docker compose ps` -> `ptw_postgres` healthy on port 5432.
+  - `git ls-files | Select-String "env"` -> confirms `.env` is gitignored.
+- **Decisions**:
+  - D-012 updated (Honest threat model for audit log).
+  - D-014 (Area Owner approval snapshot at submit time).
+- **Next**: Merge into main, tag `stage-02b`, and await user approval to begin Stage 3.

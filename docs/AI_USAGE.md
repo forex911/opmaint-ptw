@@ -35,3 +35,18 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 2 (Audit Log Trigger during Re-Seed)**: The initial seed script attempted `DELETE FROM permits;`. In PostgreSQL, foreign keys on `audit_log` with `ON DELETE SET NULL` caused an internal `UPDATE audit_log SET permit_id = NULL` when permits were deleted. The immutable audit trigger successfully rejected this update. Corrected `seed.ts` to perform non-destructive upserts (`ON CONFLICT (permit_no) DO UPDATE ...`) so audit history is never altered by cascading deletes.
   - **Correction 3 (Status Coverage in Seed)**: The original 10 permits included two `ACTIVE` permits (one expiring in <2h and one standard) and omitted `APPROVED`. Added an 11th permit with status `APPROVED` so all 10 distinct statuses in `PermitStatus` are represented.
   - **Correction 4 (Hot Work Gas Test in Seed)**: Corrected permit `PTW-2026-0010` to include valid gas readings so all seeded permits satisfy shared registry validation.
+
+---
+
+## Stage 2b: Stage 2 Review Fixes & Schema Hardening
+- **AI-Assisted Deliverables**:
+  - Implemented sequence advancement via `setval` in `seed.ts` and associated uniqueness test.
+  - Hardened `audit_log` with statement-level `BEFORE TRUNCATE` trigger, `ON DELETE RESTRICT` on `audit_log.permit_id`, and created `ptw_app_user` application role with revoked `UPDATE, DELETE, TRUNCATE`.
+  - Configured dedicated test database `ptw_cmms_test` via `TEST_DATABASE_URL` in `apps/api/vitest.config.ts`.
+  - Added migration `0001_permit_type_check.sql` and integration test verifying SQL CHECK value lists equal shared enums.
+  - Documented decision `D-014` regarding Area Owner approval snapshots at submission.
+  - Standardized regulatory language to "factory safety regulators and auditors".
+- **Human Review & Corrections**:
+  - **Correction 1 (Audit Log Threat Model)**: Clarified that while the application role and standard triggers prevent application-level tampering, database superusers (`postgres`) retain administrative privilege to disable triggers; cloud deployments require separate IAM policies and external write-once audit log sinks.
+  - **Correction 2 (Permit Type Check Constraint)**: Identified missing SQL CHECK constraint for permit types in the initial migration; added migration `0001_permit_type_check.sql` and confirmed it matches `@ptw/shared` permit types.
+
