@@ -1,13 +1,17 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import pkg from 'pg';
+const { Pool } = pkg;
+import { env } from '../config/env.js';
 import { getPool, closeDbConnection } from './client.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function runMigrations(): Promise<void> {
-  const pool = getPool();
+export async function runMigrations(customPool?: pkg.Pool): Promise<void> {
+  const ownPool = !customPool && env.ADMIN_DATABASE_URL ? new Pool({ connectionString: env.ADMIN_DATABASE_URL }) : null;
+  const pool = customPool || ownPool || getPool();
   const client = await pool.connect();
 
   try {
@@ -64,6 +68,9 @@ export async function runMigrations(): Promise<void> {
     console.log('✨ All migrations completed successfully.');
   } finally {
     client.release();
+    if (ownPool) {
+      await ownPool.end();
+    }
   }
 }
 
