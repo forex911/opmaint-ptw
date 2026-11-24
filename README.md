@@ -19,13 +19,14 @@ This module guarantees server-side authorization enforcement, complete audit tra
 ### Prerequisites
 - Node.js `v20.14+` or `v24+`
 - npm `v10+`
-- PostgreSQL `v15+` (for Stage 2 onwards; local Docker setup provided below)
+- Docker & Docker Compose (or local PostgreSQL 15+)
 
-### Setup Steps
+### Setup Steps (Windows and Linux)
+Commands are written as individual steps without shell-specific chaining:
+
 ```bash
-# 1. Clone the repository
-git clone <repo-url>
-cd task
+# 1. Start local PostgreSQL via Docker Compose
+docker compose up -d
 
 # 2. Install workspace dependencies
 npm ci
@@ -34,10 +35,16 @@ npm ci
 npm run typecheck
 npm run lint
 
-# 4. Build all workspace packages
+# 4. Run database migrations
+npm run db:migrate
+
+# 5. Seed the database with demo data
+npm run db:seed
+
+# 6. Build all workspace packages
 npm run build
 
-# 5. Run test suite
+# 7. Run full test suite
 npm run test
 ```
 
@@ -50,19 +57,20 @@ When a remote repository is configured, push branches and tags using:
 git push origin main --tags
 git push origin stage/01-skeleton
 git push origin stage/01b-cleanup
+git push origin stage/02-schema
 ```
 *(If no remote exists, operations remain safely recorded in local git history).*
 
 ---
 
-## 3. Demo Credentials (Preview for Stage 2 Seed)
+## 3. Demo Credentials (Seeded by `npm run db:seed`)
 
-| Role | Email | Password | Responsibility |
-|---|---|---|---|
-| `REQUESTER` | `requester@cmms.local` | `PtwPass2026!` | Drafts permits, coordinates contractor teams, closes work |
-| `AREA_OWNER` | `area.owner@cmms.local` | `PtwPass2026!` | Authorizes permits located in their assigned plant area |
-| `SAFETY_OFFICER` | `safety.officer@cmms.local` | `PtwPass2026!` | Plant-wide safety review, suspensions, closures, verification |
-| `ADMIN` | `admin@cmms.local` | `PtwPass2026!` | Plant/area/equipment configuration, emergency overrides |
+| Role | Name | Email | Password | Responsibility |
+|---|---|---|---|---|
+| `REQUESTER` | Rajesh Kumar | `requester@cmms.local` | `PtwPass2026!` | Drafts permits, coordinates contractor teams, closes work |
+| `AREA_OWNER` | Suresh Raman | `area.owner@cmms.local` | `PtwPass2026!` | Authorizes permits located in their assigned plant area |
+| `SAFETY_OFFICER` | Priya Nair | `safety.officer@cmms.local` | `PtwPass2026!` | Plant-wide safety review, suspensions, closures, verification |
+| `ADMIN` | Admin User | `admin@cmms.local` | `PtwPass2026!` | Plant/area/equipment configuration, emergency overrides |
 
 ---
 
@@ -78,13 +86,15 @@ git push origin stage/01b-cleanup
 - **D-008 (Dual Expiry)**: Lazy expiry on every read/write backed by a minute-interval sweeper and webhook.
 - **D-009 (Permit Numbering)**: Human-readable identifier format `PTW-YYYY-NNNN`.
 - **D-010 (Confined Space Gas Re-Verification at Activation)**: Atmospheric testing timestamp is verified at activation to ensure freshness (`now - tested_at <= 60 minutes`).
+- **D-011 (Permit Sequence Numbering)**: Atomic sequential generation via PostgreSQL sequence `ptw_permit_no_seq`.
+- **D-012 (Append-Only Audit Immutability)**: Unconditional row-level database trigger on `audit_log`.
+- **D-013 (Permit Approvals Model)**: Normalized `permit_approvals` table with role requirements and user assignments.
 
 ---
 
 ## 5. Known Limitations & Deferred Scope
 
 See [docs/KNOWN_ISSUES.md](file:///D:/task/docs/KNOWN_ISSUES.md) for detailed descriptions.
-- Database schema, Drizzle ORM migrations, and seed scripts are implemented in **Stage 2**.
 - Authentication, role middleware, and session cookies are implemented in **Stage 3**.
 - State machine transition engine is implemented in **Stage 4**.
 - Permit CRUD, stats, work logs, and audit endpoints are implemented in **Stage 5**.
