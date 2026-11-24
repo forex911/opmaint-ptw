@@ -401,6 +401,48 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       expect(statsRes.body.pendingMyApproval).toBeDefined();
     });
 
+    it('handles concurrent GET /api/permits calls idempotently with exactly one audit row per expired permit', async () => {
+      const pNo = `PTW-RACE-EXP-${Date.now()}`;
+      const insRes = await pool.query(
+        `INSERT INTO permits (
+          permit_no, type, status, requester_id, contractor_team, work_description,
+          plant_id, area_id, equipment_id, planned_start, planned_end, created_at, version
+        ) VALUES (
+          $1, 'HOT_WORK', 'ACTIVE',
+          (SELECT id FROM users WHERE email = 'requester@cmms.local'),
+          'Race Crew', 'Testing concurrent lazy expiry',
+          $2, $3, $4,
+          NOW() - INTERVAL '3 hours',
+          NOW() - INTERVAL '30 minutes',
+          NOW(),
+          1
+        ) RETURNING id`,
+        [pNo, plant1Id, area1Id, equipment1Id]
+      );
+      const testPId = insRes.rows[0].id;
+
+      // Fire 6 concurrent GET requests from different users
+      await Promise.all([
+        requesterAgent.get('/api/permits'),
+        requesterAgent.get('/api/permits'),
+        areaOwnerAgent.get('/api/permits'),
+        safetyOfficerAgent.get('/api/permits'),
+        adminAgent.get('/api/permits'),
+        requesterAgent.get('/api/permits/stats'),
+      ]);
+
+      // Verify the permit is EXPIRED
+      const checkRes = await pool.query('SELECT status FROM permits WHERE id = $1', [testPId]);
+      expect(checkRes.rows[0].status).toBe(PermitStatus.EXPIRED);
+
+      // Verify exactly ONE audit log row exists for this expiry action
+      const auditRes = await pool.query(
+        "SELECT * FROM audit_log WHERE permit_id = $1 AND action = 'expire'",
+        [testPId]
+      );
+      expect(auditRes.rows.length).toBe(1);
+    });
+
     it('enforces pagination: default 20, max limit 100, and returns total pages', async () => {
       const res = await requesterAgent.get('/api/permits?page=1&limit=5').expect(200);
       expect(res.body.items.length).toBeLessThanOrEqual(5);
