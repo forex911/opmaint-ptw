@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.2.1] - 2026-11-24 - Stage 2b: Database Hardening, Test Isolation, and Constraint Verification
+
+### Added
+- Sequence advancement via `setval` in `apps/api/src/db/seed.ts` to ensure permits created via `getNextPermitNumber()` generate strictly unique numbers past seeded permits.
+- Database migration `0001_permit_type_check.sql` adding `permits_type_check` SQL constraint.
+- Unit test in `apps/api/src/db/schema.test.ts` verifying that SQL CHECK constraints on `users` (`users_role_check`), `permits` (`permits_status_check`), and `permits` (`permits_type_check`) match `@ptw/shared` enums.
+- Dedicated `ptw_cmms_test` database configuration via `TEST_DATABASE_URL` in `apps/api/vitest.config.ts`, `.env.example`, and test runner.
+- Statement-level `BEFORE TRUNCATE` trigger on `audit_log` prohibiting table truncation.
+- Dedicated application role `ptw_app_user` with explicit `REVOKE UPDATE, DELETE, TRUNCATE ON audit_log`.
+- `ON DELETE RESTRICT` constraint on `audit_log.permit_id` preventing deletion of permits that have audit logs.
+- Decision `D-014` documenting Area Owner approval user snapshot at submit time.
+
+### Changed
+- Updated `D-012` to state an honest threat model (database superuser administrative capabilities).
+- Standardized compliance wording across documentation to reference "factory safety regulators and auditors".
+- Aligned PostgreSQL 16 and port 5432 configuration across `docker-compose.yml`, `README.md`, and `.env.example`.
+- Confirmed Docker Compose PostgreSQL 16 container runs healthy on local host.
+
+---
+
 ## [0.2.0] - 2026-11-24 - Stage 2: Database Schema, Migrations, Audit Trigger, and Idempotent Seed Script
 
 ### Added

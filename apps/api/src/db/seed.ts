@@ -629,6 +629,18 @@ export async function seedDatabase(): Promise<void> {
       }
     }
 
+    // Advance sequence past all seeded permit numbers so subsequent creations never collide
+    await client.query(`
+      SELECT setval(
+        'ptw_permit_no_seq', 
+        GREATEST(
+          11, 
+          COALESCE((SELECT MAX(SUBSTRING(permit_no FROM '\\d+$')::INTEGER) FROM permits), 0)
+        ), 
+        true
+      );
+    `);
+
     await client.query('COMMIT');
 
     console.log('\n===============================================================');

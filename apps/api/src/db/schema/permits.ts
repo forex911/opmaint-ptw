@@ -13,7 +13,7 @@ import { users } from './users.js';
 import { plants } from './plants.js';
 import { areas } from './areas.js';
 import { equipment } from './equipment.js';
-import { ALL_PERMIT_STATUSES } from '@ptw/shared';
+import { ALL_PERMIT_STATUSES, PermitTypeCode } from '@ptw/shared';
 
 export const permits = pgTable(
   'permits',
@@ -64,6 +64,12 @@ export const permits = pgTable(
       'permits_status_check',
       sql`${table.status} IN (${sql.raw(
         ALL_PERMIT_STATUSES.map((s) => `'${s}'`).join(', ')
+      )})`
+    ),
+    permitsTypeCheck: check(
+      'permits_type_check',
+      sql`${table.type} IN (${sql.raw(
+        Object.values(PermitTypeCode).map((t) => `'${t}'`).join(', ')
       )})`
     ),
     permitsStatusIdx: index('permits_status_idx').on(table.status),

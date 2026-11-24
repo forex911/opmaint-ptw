@@ -9,6 +9,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required').default('postgres://postgres:postgres@localhost:5432/ptw_cmms'),
+  TEST_DATABASE_URL: z.string().optional(),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters long').default('super-secure-industrial-ptw-secret-key-min-32-chars-long!'),
   JWT_EXPIRES_IN: z.string().default('8h'),
   COOKIE_NAME: z.string().default('ptw_token'),

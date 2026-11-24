@@ -4,11 +4,12 @@ const { Pool } = pkg;
 import { runMigrations } from './migrate.js';
 import { seedDatabase } from './seed.js';
 import { getNextPermitNumber } from './client.js';
+import { ALL_USER_ROLES, ALL_PERMIT_STATUSES, PermitTypeCode } from '@ptw/shared';
 
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ||
   process.env.DATABASE_URL ||
-  'postgres://postgres@localhost:5433/ptw_cmms';
+  'postgres://postgres@localhost:5433/ptw_cmms_test';
 
 describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
   let pool: pkg.Pool;
@@ -17,6 +18,8 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     pool = new Pool({ connectionString: TEST_DATABASE_URL });
     // Run migrations on the test database
     await runMigrations();
+    // Seed initial data so foreign key references exist for constraint tests
+    await seedDatabase();
   });
 
   afterAll(async () => {
@@ -136,6 +139,35 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     }
   });
 
+  it('enforces append-only audit_log trigger: blocks TRUNCATE operations', async () => {
+    const client = await pool.connect();
+    try {
+      await expect(client.query('TRUNCATE TABLE audit_log')).rejects.toThrow(
+        /audit_log is append-only: TRUNCATE is strictly prohibited/
+      );
+    } finally {
+      client.release();
+    }
+  });
+
+  it('enforces ON DELETE RESTRICT on audit_log.permit_id preventing permit deletion while audit logs exist', async () => {
+    const client = await pool.connect();
+    try {
+      // Find a permit that has audit rows
+      const permitRes = await client.query(
+        'SELECT permit_id FROM audit_log WHERE permit_id IS NOT NULL LIMIT 1;'
+      );
+      if (permitRes.rows.length > 0) {
+        const permitId = permitRes.rows[0].permit_id;
+        await expect(
+          client.query('DELETE FROM permits WHERE id = $1', [permitId])
+        ).rejects.toThrow(/foreign key|violates foreign key constraint/i);
+      }
+    } finally {
+      client.release();
+    }
+  });
+
   it('executes the seed script twice without error (idempotent verification)', async () => {
     // Run seed first time
     await seedDatabase();
@@ -154,5 +186,50 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     // Verify all 10 distinct statuses are represented
     const statusesRes = await pool.query('SELECT DISTINCT status FROM permits');
     expect(statusesRes.rows.length).toBe(10);
+  });
+
+  it('advances ptw_permit_no_seq past seeded permits so generating a new permit yields a unique number', async () => {
+    await seedDatabase();
+    const nextPermitNo = await getNextPermitNumber(pool);
+    expect(nextPermitNo).toBe(`PTW-${new Date().getFullYear()}-0012`);
+    const existing = await pool.query('SELECT id FROM permits WHERE permit_no = $1', [nextPermitNo]);
+    expect(existing.rows.length).toBe(0);
+  });
+
+  it('ensures SQL CHECK value lists strictly equal the shared enums (statuses, roles, permit types)', async () => {
+    const client = await pool.connect();
+    try {
+      const res = await client.query(`
+        SELECT c.conname, pg_get_constraintdef(c.oid) AS def
+        FROM pg_constraint c
+        JOIN pg_class t ON c.conrelid = t.oid
+        WHERE c.contype = 'c'
+          AND c.conname IN ('users_role_check', 'permits_status_check', 'permits_type_check');
+      `);
+
+      const constraints = new Map<string, string>();
+      for (const row of res.rows) {
+        constraints.set(row.conname, row.def);
+      }
+
+      expect(constraints.has('users_role_check')).toBe(true);
+      expect(constraints.has('permits_status_check')).toBe(true);
+      expect(constraints.has('permits_type_check')).toBe(true);
+
+      const extractValues = (def: string): string[] => {
+        const matches = def.match(/'([^']+)'/g);
+        return matches ? matches.map((m) => m.replace(/'/g, '')) : [];
+      };
+
+      const roleValues = extractValues(constraints.get('users_role_check')!);
+      const statusValues = extractValues(constraints.get('permits_status_check')!);
+      const typeValues = extractValues(constraints.get('permits_type_check')!);
+
+      expect([...roleValues].sort()).toEqual([...ALL_USER_ROLES].sort());
+      expect([...statusValues].sort()).toEqual([...ALL_PERMIT_STATUSES].sort());
+      expect([...typeValues].sort()).toEqual([...Object.values(PermitTypeCode)].sort());
+    } finally {
+      client.release();
+    }
   });
 });

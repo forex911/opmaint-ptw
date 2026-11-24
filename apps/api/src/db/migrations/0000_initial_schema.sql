@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS permits (
   CONSTRAINT permits_status_check CHECK (status IN (
     'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ACTIVE', 'SUSPENDED',
     'REJECTED', 'EXPIRED', 'CLOSED', 'CLOSED_VERIFIED', 'CANCELLED'
+  )),
+  CONSTRAINT permits_type_check CHECK (type IN (
+    'HOT_WORK', 'CONFINED_SPACE', 'WORKING_AT_HEIGHT', 'ELECTRICAL_LOTO'
   ))
 );
 CREATE INDEX IF NOT EXISTS permits_status_idx ON permits (status);
@@ -129,10 +132,10 @@ CREATE TABLE IF NOT EXISTS permit_extensions (
 );
 CREATE INDEX IF NOT EXISTS permit_extensions_permit_id_idx ON permit_extensions (permit_id);
 
--- 10. Audit Log table (Append-only)
+-- 10. Audit Log table (Append-only, RESTRICT on permit deletion)
 CREATE TABLE IF NOT EXISTS audit_log (
   id BIGSERIAL PRIMARY KEY,
-  permit_id UUID REFERENCES permits(id) ON DELETE SET NULL,
+  permit_id UUID REFERENCES permits(id) ON DELETE RESTRICT,
   actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
   action TEXT NOT NULL,
   from_value JSONB,
@@ -144,7 +147,7 @@ CREATE INDEX IF NOT EXISTS audit_log_permit_id_idx ON audit_log (permit_id);
 CREATE INDEX IF NOT EXISTS audit_log_created_at_idx ON audit_log (created_at);
 CREATE INDEX IF NOT EXISTS audit_log_actor_id_idx ON audit_log (actor_id);
 
--- Append-only trigger: forbids UPDATE and DELETE on audit_log
+-- Append-only row-level trigger: forbids UPDATE and DELETE on audit_log
 CREATE OR REPLACE FUNCTION audit_log_immutable() RETURNS TRIGGER AS $$
 BEGIN
   RAISE EXCEPTION 'audit_log is append-only: UPDATE and DELETE operations are strictly prohibited';
@@ -155,3 +158,29 @@ DROP TRIGGER IF EXISTS trg_audit_log_immutable ON audit_log;
 CREATE TRIGGER trg_audit_log_immutable
 BEFORE UPDATE OR DELETE ON audit_log
 FOR EACH ROW EXECUTE FUNCTION audit_log_immutable();
+
+-- Append-only statement-level trigger: forbids TRUNCATE on audit_log
+CREATE OR REPLACE FUNCTION audit_log_truncate_prohibited() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log is append-only: TRUNCATE is strictly prohibited';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_audit_log_truncate ON audit_log;
+CREATE TRIGGER trg_audit_log_truncate
+BEFORE TRUNCATE ON audit_log
+FOR EACH STATEMENT EXECUTE FUNCTION audit_log_truncate_prohibited();
+
+-- Dedicated application role with restricted privileges
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'ptw_app_user') THEN
+    CREATE ROLE ptw_app_user WITH LOGIN PASSWORD 'ptw_app_pass';
+  END IF;
+END
+$$;
+
+GRANT USAGE ON SCHEMA public TO ptw_app_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ptw_app_user;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO ptw_app_user;
+REVOKE UPDATE, DELETE, TRUNCATE ON audit_log FROM ptw_app_user;
