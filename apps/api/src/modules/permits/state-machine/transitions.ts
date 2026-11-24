@@ -103,7 +103,12 @@ export const TRANSITION_TABLE: readonly TransitionRule[] = [
   },
   {
     action: 'expire',
-    from: [PermitStatus.APPROVED, PermitStatus.ACTIVE, PermitStatus.SUSPENDED],
+    from: [
+      PermitStatus.PENDING_APPROVAL,
+      PermitStatus.APPROVED,
+      PermitStatus.ACTIVE,
+      PermitStatus.SUSPENDED,
+    ],
     to: PermitStatus.EXPIRED,
     allowedRoles: ['SYSTEM', UserRole.ADMIN],
     guards: [],

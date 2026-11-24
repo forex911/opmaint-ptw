@@ -650,4 +650,161 @@ describe('State Machine Transitions, Pure Guards & Lazy Expiry', () => {
       expect(resumed.status).toBe(PermitStatus.ACTIVE);
     });
   });
+
+  describe('Independent Hand-Written Specification State Diagram Matrix', () => {
+    /**
+     * Hand-written expected transition matrix copied directly from the assignment's domain state diagram:
+     * - Normal progression:
+     *   DRAFT -> PENDING_APPROVAL -> APPROVED -> ACTIVE -> SUSPENDED -> ACTIVE -> CLOSED -> CLOSED_VERIFIED
+     * - Rejection:
+     *   PENDING_APPROVAL -> REJECTED
+     * - Cancellation:
+     *   Non-terminal statuses can transition to CANCELLED: DRAFT, PENDING_APPROVAL, APPROVED, SUSPENDED
+     * - Automated / Lazy Expiry:
+     *   Overdue statuses transition to EXPIRED: PENDING_APPROVAL, APPROVED, ACTIVE, SUSPENDED (DRAFT is NOT expirable)
+     * - Terminal statuses:
+     *   CLOSED_VERIFIED, CANCELLED, REJECTED, EXPIRED have strictly zero legal outgoing actions.
+     */
+    const SPEC_EXPECTED_TRANSITIONS: Record<PermitAction, readonly PermitStatus[]> = {
+      submit: [PermitStatus.DRAFT],
+      approve: [PermitStatus.PENDING_APPROVAL],
+      reject: [PermitStatus.PENDING_APPROVAL],
+      activate: [PermitStatus.APPROVED],
+      suspend: [PermitStatus.ACTIVE],
+      resume: [PermitStatus.SUSPENDED],
+      close: [PermitStatus.ACTIVE],
+      verify: [PermitStatus.CLOSED],
+      cancel: [
+        PermitStatus.DRAFT,
+        PermitStatus.PENDING_APPROVAL,
+        PermitStatus.APPROVED,
+        PermitStatus.SUSPENDED,
+      ],
+      expire: [
+        PermitStatus.PENDING_APPROVAL,
+        PermitStatus.APPROVED,
+        PermitStatus.ACTIVE,
+        PermitStatus.SUSPENDED,
+      ],
+    };
+
+    it('verifies that TRANSITION_TABLE strictly matches the specification state diagram for all 10 statuses x 10 actions', () => {
+      for (const action of ALL_PERMIT_ACTIONS) {
+        const expectedFromStatuses = SPEC_EXPECTED_TRANSITIONS[action];
+        const tableRules = TRANSITION_TABLE.filter((r) => r.action === action);
+        const actualFromStatuses = tableRules.flatMap((r) => r.from);
+
+        expect(
+          [...new Set(actualFromStatuses)].sort(),
+          `Action '${action}' allowed source statuses must strictly match assignment state diagram`
+        ).toEqual([...new Set(expectedFromStatuses)].sort());
+      }
+    });
+
+    it('verifies that terminal statuses (CLOSED_VERIFIED, CANCELLED, REJECTED, EXPIRED) have zero outgoing transitions', () => {
+      const terminalStatuses: readonly PermitStatus[] = [
+        PermitStatus.CLOSED_VERIFIED,
+        PermitStatus.CANCELLED,
+        PermitStatus.REJECTED,
+        PermitStatus.EXPIRED,
+      ];
+
+      for (const terminal of terminalStatuses) {
+        const outgoingRules = TRANSITION_TABLE.filter((r) => r.from.includes(terminal));
+        expect(
+          outgoingRules,
+          `Terminal status '${terminal}' must have zero outgoing transitions`
+        ).toEqual([]);
+      }
+    });
+
+    it('lazily expires PENDING_APPROVAL permits when planned_end has passed, commits EXPIRED, logs System audit row, and rejects approve with 409', async () => {
+      // 1. Create a PENDING_APPROVAL permit whose planned_end is in the past
+      const permit = await createTestPermit({
+        status: PermitStatus.DRAFT,
+        requesterId: requesterUser.id,
+        plannedStart: new Date('2026-06-01T08:00:00Z'),
+        plannedEnd: new Date('2026-06-01T12:00:00Z'),
+      });
+
+      // Submit it so it enters PENDING_APPROVAL and creates approval rows
+      await transition(
+        permit.id,
+        'submit',
+        { id: requesterUser.id, role: UserRole.REQUESTER },
+        {},
+        { now: new Date('2026-06-01T07:30:00Z') }
+      );
+
+      // Verify it is in PENDING_APPROVAL
+      const submittedRes = await pool.query('SELECT status FROM permits WHERE id = $1', [permit.id]);
+      expect(submittedRes.rows[0].status).toBe(PermitStatus.PENDING_APPROVAL);
+
+      // 2. Area Owner attempts to approve at 13:00 (1 hour after planned_end elapsed)
+      const clock = new Date('2026-06-01T13:00:00Z');
+      let caughtErr: any;
+      try {
+        await transition(
+          permit.id,
+          'approve',
+          { id: areaOwnerUser.id, role: UserRole.AREA_OWNER },
+          { comment: 'Late approval attempt' },
+          { now: clock }
+        );
+        expect.fail('Should have thrown 409 ILLEGAL_TRANSITION');
+      } catch (err: any) {
+        caughtErr = err;
+      }
+
+      // Assert caller gets 409 ILLEGAL_TRANSITION
+      expect(caughtErr).toBeDefined();
+      expect(caughtErr.statusCode).toBe(409);
+      expect(caughtErr.code).toBe('ILLEGAL_TRANSITION');
+      expect(caughtErr.message).toContain('Permit has expired');
+
+      // 3. Assert PostgreSQL row was permanently updated to EXPIRED
+      const checkRes = await pool.query('SELECT status, version FROM permits WHERE id = $1', [
+        permit.id,
+      ]);
+      expect(checkRes.rows[0].status).toBe(PermitStatus.EXPIRED);
+
+      // 4. Assert automated System audit row exists with actor_id = NULL
+      const auditRes = await pool.query(
+        'SELECT * FROM audit_log WHERE permit_id = $1 AND action = $2',
+        [permit.id, 'expire']
+      );
+      expect(auditRes.rows.length).toBe(1);
+      expect(auditRes.rows[0].actor_id).toBeNull();
+      expect(auditRes.rows[0].comment).toContain('Automated lazy expiry');
+    });
+
+    it('does NOT lazily expire DRAFT permits even if planned_end is in the past', async () => {
+      const draftPermit = await createTestPermit({
+        status: PermitStatus.DRAFT,
+        requesterId: requesterUser.id,
+        plannedStart: new Date('2026-06-01T08:00:00Z'),
+        plannedEnd: new Date('2026-06-01T12:00:00Z'),
+      });
+
+      // Attempt an action like cancel at 13:00 (1 hour after planned_end)
+      const clock = new Date('2026-06-01T13:00:00Z');
+      const cancelled = await transition(
+        draftPermit.id,
+        'cancel',
+        { id: requesterUser.id, role: UserRole.REQUESTER },
+        { comment: 'Discarding stale draft' },
+        { now: clock }
+      );
+
+      // It transitions directly to CANCELLED, NOT EXPIRED!
+      expect(cancelled.status).toBe(PermitStatus.CANCELLED);
+
+      // Verify no lazy expire audit row was logged
+      const auditRes = await pool.query(
+        'SELECT * FROM audit_log WHERE permit_id = $1 AND action = $2',
+        [draftPermit.id, 'expire']
+      );
+      expect(auditRes.rows.length).toBe(0);
+    });
+  });
 });

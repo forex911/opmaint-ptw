@@ -228,13 +228,16 @@ This log records every architectural decision, rejected alternative, and trade-o
 
 ---
 
-### D-018 Audit Actor Attribution for Automated System Actions (Expire Sweeper)
-- **Context**: Automated lifecycle transitions (such as lazy expiry and background sweeper runs) occur without an interactive human session. Regulatory audit logging requires recording these events without spoofing human authorization.
+### D-018 Audit Actor Attribution for Automated System Actions & Expirable Status Coverage
+- **Context**: Automated lifecycle transitions (such as lazy expiry and background sweeper runs) occur without an interactive human session. Regulatory audit logging requires recording these events without spoofing human authorization. Additionally, the boundary of statuses subject to automated expiry must be strictly defined.
 - **Options considered**:
-  - *Option A*: Set `audit_log.actor_id = NULL` with system action metadata (`action: 'EXPIRE'`, `comment: 'Automated expiry: planned_end window elapsed'`).
-  - *Option B*: Provision a synthetic seeded user (`system@cmms.local`).
-- **Decision**: Option A — Nullable `actor_id` (`NULL`) in `audit_log`.
-- **Consequences**: The database schema explicitly allows `actor_id UUID REFERENCES users(id) ON DELETE SET NULL`. A `NULL` actor unambiguously denotes an automated, non-human system action in compliance audit queries, preventing confusion between automated safety trips and operator interventions.
+  - *Option A*: Set `audit_log.actor_id = NULL` with system action metadata (`action: 'expire'`, `comment: 'Automated lazy expiry: planned_end window elapsed'`), applying expiry to `PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, and `SUSPENDED` (excluding `DRAFT`).
+  - *Option B*: Provision a synthetic seeded user (`system@cmms.local`) and include `DRAFT` in automated expiry.
+- **Decision**: Option A — Nullable `actor_id` (`NULL`) in `audit_log`, and include `PENDING_APPROVAL`, `APPROVED`, `ACTIVE`, `SUSPENDED` in automated expiry.
+- **Consequences**:
+  - The database schema explicitly allows `actor_id UUID REFERENCES users(id) ON DELETE SET NULL`. A `NULL` actor unambiguously denotes an automated, non-human system action in compliance audit queries, preventing confusion between automated safety trips and operator interventions.
+  - In audit timelines, rows with `actor_id === null` are labeled as `"System"`.
+  - `PENDING_APPROVAL` permits whose planned work window has elapsed cannot be approved or activated; they automatically expire to prevent hazardous backdated approvals. `DRAFT` permits are strictly excluded because unsubmitted drafts represent in-progress authoring and do not possess committed operational plant authorizations.
 - **Status**: Accepted
 
 ---
