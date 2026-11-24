@@ -230,4 +230,28 @@ This append-only log tracks every stage, unit of work, verification result, and 
 - **Decisions**:
   - D-018 (Automated System Audit Actor with Nullable `actor_id`).
   - D-019 (Separation of Duties / Four-Eyes Principle for Permit Approvals).
-- **Next**: Merge into main, tag `stage-04`, and proceed to Stage 5 (Permit CRUD, list filters, pagination, stats endpoint, and audit timeline).
+- **Next**: Merge into main, tag `stage-04`, and proceed to Stage 4b review follow-ups.
+
+---
+
+## [2026-11-24 18:45] stage-04b / Stage 4 Review Follow-ups & Hardening
+- **Goal**: Complete 4 review follow-ups:
+  1. Add hand-written expected transition matrix copied from specification state diagram (independent of `TRANSITION_TABLE`) and test table against it.
+  2. Include `PENDING_APPROVAL` in lazy expiry (not `DRAFT`), update `D-018` and tests.
+  3. Verify test proving rejected action 409 commits `EXPIRED` to DB, system audit row exists with `actor_id = NULL`, confirm `audit_log.actor_id` nullable in migration, and explain `"System"` labeling in audit timeline.
+  4. Install `helmet` and `express-rate-limit` from npm registry, wire them into middleware, update `KNOWN_ISSUES.md`.
+- **Done**:
+  - Authored independent specification state diagram matrix in `transition.test.ts` testing all 10 statuses x 10 actions against `TRANSITION_TABLE` and proving zero outgoing transitions from terminal states (`CLOSED_VERIFIED`, `CANCELLED`, `REJECTED`, `EXPIRED`).
+  - Added `PermitStatus.PENDING_APPROVAL` to `expirableStatuses` in `transition-engine.ts` and `transitions.ts`, updated `D-018`, added tests asserting `PENDING_APPROVAL` lazy expiry on overdue permits with 409 rejection and permanent PostgreSQL commit, and confirmed `DRAFT` is never lazily expired.
+  - Verified `0000_initial_schema.sql` line 139 defines `actor_id UUID REFERENCES users(id) ON DELETE SET NULL` (nullable). Documented timeline formatting where `actor_id === null` maps to `"System"`.
+  - Installed `helmet@^8.3.0` and `express-rate-limit@^8.7.5` in `apps/api/package.json`. Configured `helmetMiddleware` and `loginRateLimiter` with IPv6 safety via `ipKeyGenerator`.
+- **Commits**:
+  - `271a90b` test(permits): add hand-written spec transition matrix test and include PENDING_APPROVAL in lazy expiry per D-018
+  - `629f91d` feat(security): install helmet and express-rate-limit packages and update middleware
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm test` -> 143/143 tests passing (6 shared + 137 api) against real PostgreSQL database `ptw_cmms_test`.
+- **Decisions**:
+  - D-018 updated (Expirable status coverage includes `PENDING_APPROVAL`, excludes `DRAFT`).
+- **Next**: Merge into main, tag `stage-04b`, and proceed to Stage 5 on `stage/05-permit-endpoints`.

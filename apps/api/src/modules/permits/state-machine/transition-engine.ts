@@ -115,6 +115,7 @@ export async function transition(
     // 3. Persistent Lazy Expiry Check
     // If permit is in an expirable state and planned_end has passed, transition to EXPIRED
     const expirableStatuses: readonly string[] = [
+      PermitStatus.PENDING_APPROVAL,
       PermitStatus.APPROVED,
       PermitStatus.ACTIVE,
       PermitStatus.SUSPENDED,
