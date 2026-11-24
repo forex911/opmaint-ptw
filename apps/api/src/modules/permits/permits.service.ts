@@ -5,9 +5,8 @@ import {
   UserRole,
   ALL_PERMIT_STATUSES,
   validatePermitDetails,
-  type PermitStatusCode,
 } from '@ptw/shared';
-import { transition, mapPermitRow } from './state-machine/transition-engine.js';
+import { mapPermitRow } from './state-machine/transition-engine.js';
 import { getAllowedActions } from './state-machine/transitions.js';
 import { validateLocationConsistency } from './services/permit-validation.service.js';
 import { bulkExpireOverduePermits } from './services/expiry.service.js';
@@ -42,7 +41,7 @@ export interface UpdatePermitInput {
 }
 
 export interface ListPermitsFilter {
-  status?: PermitStatusCode;
+  status?: PermitStatus;
   type?: string;
   areaId?: string;
   from?: string;
@@ -107,11 +106,11 @@ export class PermitsService {
         input.workDescription,
         input.plantId,
         input.areaId,
-        input.equipmentId || null,
+        input.equipmentId,
         new Date(input.plannedStart),
         new Date(input.plannedEnd),
-        JSON.stringify(input.hazards || []),
-        JSON.stringify(input.ppe || []),
+        input.hazards || [],
+        input.ppe || [],
         JSON.stringify(details),
       ]
     );
@@ -259,8 +258,8 @@ export class PermitsService {
           nextDescription,
           nextStart,
           nextEnd,
-          JSON.stringify(nextHazards),
-          JSON.stringify(nextPpe),
+          nextHazards,
+          nextPpe,
           JSON.stringify(nextDetails),
           nextStatus,
           id,

@@ -2,18 +2,16 @@ import { z } from 'zod';
 import {
   ALL_PERMIT_STATUSES,
   ALL_PERMIT_TYPE_CODES,
-  type PermitStatusCode,
-  type PermitTypeCode,
 } from '@ptw/shared';
 
 export const createPermitSchema = z
   .object({
-    type: z.enum(ALL_PERMIT_TYPE_CODES as [PermitTypeCode, ...PermitTypeCode[]], {
+    type: z.enum(ALL_PERMIT_TYPE_CODES as unknown as [string, ...string[]], {
       errorMap: () => ({ message: 'Invalid permit type' }),
     }),
     plantId: z.string().uuid({ message: 'Invalid plant ID format' }),
     areaId: z.string().uuid({ message: 'Invalid area ID format' }),
-    equipmentId: z.string().uuid({ message: 'Invalid equipment ID format' }).nullable().optional(),
+    equipmentId: z.string().uuid({ message: 'Invalid equipment ID format' }),
     contractorTeam: z.string().min(1, { message: 'Contractor team is required' }),
     workDescription: z.string().min(1, { message: 'Work description is required' }),
     plannedStart: z.string().datetime({ message: 'plannedStart must be an ISO 8601 datetime' }),
@@ -51,8 +49,8 @@ export const updatePermitSchema = z
   });
 
 export const listPermitsQuerySchema = z.object({
-  status: z.enum(ALL_PERMIT_STATUSES as [PermitStatusCode, ...PermitStatusCode[]]).optional(),
-  type: z.enum(ALL_PERMIT_TYPE_CODES as [PermitTypeCode, ...PermitTypeCode[]]).optional(),
+  status: z.enum(ALL_PERMIT_STATUSES as unknown as [string, ...string[]]).optional(),
+  type: z.enum(ALL_PERMIT_TYPE_CODES as unknown as [string, ...string[]]).optional(),
   areaId: z.string().uuid().optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),

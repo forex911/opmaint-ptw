@@ -2,6 +2,9 @@ import type { Permit } from '../../../db/schema/permits.js';
 import type { PermitApproval } from '../../../db/schema/approvals.js';
 import { UserRole, PermitStatus } from '@ptw/shared';
 
+export type { Permit } from '../../../db/schema/permits.js';
+export type { PermitApproval } from '../../../db/schema/approvals.js';
+
 export type PermitAction =
   | 'submit'
   | 'approve'

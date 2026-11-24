@@ -4,17 +4,14 @@ import { requireAuth } from '../../middleware/auth.js';
 
 export const referenceRouter = Router();
 
-// Every authenticated user can read reference hierarchy (D-020)
-referenceRouter.use(requireAuth);
-
 /**
  * GET /api/plants
  * Returns all plants.
  */
-referenceRouter.get('/plants', async (_req, res, next) => {
+referenceRouter.get('/plants', requireAuth, async (_req, res, next) => {
   try {
     const pool = getPool();
-    const result = await pool.query('SELECT id, name, created_at FROM plants ORDER BY name ASC');
+    const result = await pool.query('SELECT id, name FROM plants ORDER BY name ASC');
     res.status(200).json({ plants: result.rows });
   } catch (err) {
     next(err);
@@ -25,7 +22,7 @@ referenceRouter.get('/plants', async (_req, res, next) => {
  * GET /api/areas
  * Returns areas, optionally filtered by ?plantId=<uuid>.
  */
-referenceRouter.get('/areas', async (req, res, next) => {
+referenceRouter.get('/areas', requireAuth, async (req, res, next) => {
   try {
     const pool = getPool();
     const plantId = req.query.plantId as string | undefined;
@@ -37,8 +34,7 @@ referenceRouter.get('/areas', async (req, res, next) => {
         a.name, 
         a.owner_id AS "ownerId",
         u.name AS "ownerName",
-        u.email AS "ownerEmail",
-        a.created_at AS "createdAt"
+        u.email AS "ownerEmail"
       FROM areas a
       LEFT JOIN users u ON u.id = a.owner_id
     `;
@@ -62,7 +58,7 @@ referenceRouter.get('/areas', async (req, res, next) => {
  * GET /api/equipment
  * Returns equipment, optionally filtered by ?areaId=<uuid>.
  */
-referenceRouter.get('/equipment', async (req, res, next) => {
+referenceRouter.get('/equipment', requireAuth, async (req, res, next) => {
   try {
     const pool = getPool();
     const areaId = req.query.areaId as string | undefined;
@@ -72,8 +68,7 @@ referenceRouter.get('/equipment', async (req, res, next) => {
         e.id, 
         e.area_id AS "areaId", 
         e.tag, 
-        e.name,
-        e.created_at AS "createdAt"
+        e.name
       FROM equipment e
     `;
     const params: any[] = [];
