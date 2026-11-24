@@ -151,3 +151,17 @@ This log records every architectural decision, rejected alternative, and trade-o
 - **Decision**: Option B — Dedicated `permit_approvals` table.
 - **Consequences**: Allows arbitrary multi-tier approval workflows (Area Owner + Safety Officer + optional type-specific specialists) without altering the core `permits` table.
 - **Status**: Accepted
+
+---
+
+### D-014 Area Owner Approval Snapshot at Submission vs Dynamic Resolution
+- **Context**: When a permit is submitted for approval, an approval requirement for `AREA_OWNER` is generated. A plant area has a designated owner (`areas.owner_id`). If the designated owner of an area changes while a permit is in `PENDING_APPROVAL` status, how should the required user be resolved?
+- **Options considered**:
+  - *Option A*: Snapshot `required_user_id` as the active `areas.owner_id` at the time of permit submission (`submit` action).
+  - *Option B*: Leave `required_user_id` `NULL` and dynamically query `areas.owner_id` whenever an approval is evaluated.
+- **Decision**: Option A — Snapshot `required_user_id = areas.owner_id` at submission.
+- **Consequences**:
+  - *Auditability & Clear Accountability*: The approval record explicitly shows which designated area owner was tasked with authorizing the hazardous work at the moment of request submission.
+  - *Consequence of Area Ownership Change*: If plant administration reassigns area ownership while permits are pending approval, existing approval rows preserve the snapshot user ID. An incoming owner or an `ADMIN` must either: (1) sign off under administrative authority, or (2) execute an administrative approval reassignment that updates `permit_approvals.required_user_id` with an explicit `audit_log` entry. The state machine transition guard strictly blocks any other user from approving the row, preventing unauthorized approvals without an audit trail.
+- **Status**: Accepted
+
