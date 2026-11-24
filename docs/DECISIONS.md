@@ -276,6 +276,28 @@ This log records every architectural decision, rejected alternative, and trade-o
 - **Consequences**: Guarantees that any parameter alteration during review immediately invalidates in-flight approvals and requires re-approval by all tiers without losing the historical structural presence of the required approval tiers. Full audit trail visibility shows exactly which fields were edited and which sign-offs were reset.
 - **Status**: Accepted
 
+---
+
+### D-022 Background Expiry Sweeper, Distributed Row-Locking Architecture & Internal Endpoint Security
+- **Context**: Industrial safety compliance mandates that overdue permits (`planned_end` in the past) must not remain active. Lazy expiry on read requests (D-018) expires permits when accessed, but unattended permits need automated, background expiration. The architecture must guarantee:
+  1. No duplicate expiry transitions or duplicate audit entries under high concurrency across multiple API container instances.
+  2. Transaction boundaries must hold candidate row locks (`SELECT ... FOR UPDATE SKIP LOCKED`) until all transitions and audit writes commit.
+  3. Batch processing must be atomic per permit using savepoints so failures do not leave permits transitioned without audit records.
+  4. Scheduled executions within a single process must not overlap.
+  5. The internal sweep endpoint (`POST /internal/sweep`) must be securely authenticated and protected against timing attacks without leaking secrets.
+- **Options considered**:
+  - *Option A*: In-memory mutex/flag alone, selecting candidate rows and committing immediately, followed by uncoordinated transitions.
+  - *Option B*: Distributed PostgreSQL row locking with `SELECT ... FOR UPDATE SKIP LOCKED` held across the entire batch transaction, per-permit savepoints (`SAVEPOINT sp_<id>`), in-process re-entrant protection (`isSweeping`), injectable clock and scheduler abstractions for deterministic testing, and timing-safe secret verification (`crypto.timingSafeEqual`) on `POST /internal/sweep`.
+- **Decision**: Option B — Distributed PostgreSQL row locking holding locks throughout the batch, per-permit savepoints, in-process re-entrant guard, and timing-safe header verification.
+- **Consequences**:
+  - Cross-instance safety: Multiple API instances sweeping concurrently will skip candidate rows currently locked by another instance via `SKIP LOCKED`, executing without blocking or duplicate audit records.
+  - Per-permit atomicity: If an individual permit fails during transition or audit insertion, its savepoint rolls back that specific candidate without aborting other candidates or leaving an orphaned state.
+  - Response semantics: `POST /internal/sweep` returns `{ scanned: number, expiredCount: number, expiredPermitIds: string[] }`, where `scanned` is the count of rows examined/locked, `expiredCount` is the number of permits successfully expired, and `expiredCount === expiredPermitIds.length`.
+  - Security: `SWEEP_SECRET` is enforced to be `>= 32` characters; constant-time comparison prevents timing attacks; secrets are never logged or returned in responses; unauthenticated requests return sanitized 401 responses.
+  - Clean lifecycle: `startSweeper()` is idempotent; `stopSweeper()` is safe to call repeatedly and awaits in-flight sweeps before process termination.
+- **Status**: Accepted
+
+
 
 
 

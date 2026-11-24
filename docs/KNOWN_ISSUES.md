@@ -15,9 +15,9 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Description**: Central permit state machine with `SELECT ... FOR UPDATE` concurrency row locking, pure unit-testable guards, persistent lazy expiry, and Four-Eyes separation of duties (`D-019`) completed and verified with 105 tests in Stage 4 and Stage 4b.
 - **Status**: Implemented & verified.
 
-### 3. HTTP Endpoints & Auth Middleware
-- **Description**: Route handlers, session cookies, and auth middleware implemented in Stage 3. Permit CRUD, list filters, stats, and audit timeline implemented in Stage 5. Expiry sweeper scheduled for Stage 6; extensions and conflict detection scheduled for Stage 7.
-- **Status**: Stage 3 (Auth complete), Stage 4 (State machine complete), Stage 5 (Permits in progress).
+### 3. HTTP Endpoints, Auth Middleware, & Background Sweeper
+- **Description**: Route handlers, session cookies, and auth middleware implemented in Stage 3. Permit CRUD, list filters, stats, and audit timeline implemented in Stage 5. Background expiry sweeper (`node-cron`) and protected `POST /internal/sweep` implemented in Stage 6. Extensions and conflict detection scheduled for Stage 7.
+- **Status**: Stage 3 (Auth complete), Stage 4 (State machine complete), Stage 5 (Permits complete), Stage 6 (Background sweeper complete). Stage 7 (Extensions & conflict detection) in progress.
 
 ### 4. Stateless JWT Logout without Distributed Blocklist
 - **Description**: Calling `POST /api/auth/logout` clears the client's `httpOnly` session cookie. However, because JWT verification is stateless, an unexpired token if exfiltrated prior to logout remains cryptographically valid until its 8-hour window expires (or until the user is deactivated in the database).

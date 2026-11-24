@@ -322,3 +322,43 @@ This append-only log tracks every stage, unit of work, verification result, and 
 - **Decisions**:
   - D-021 (Pending Approval Edit Retention and Approvals Invalidation).
 - **Next**: Merge stage/05b-fixes into main, tag stage-05b, and proceed to Stage 6 (node-cron sweeper and POST /internal/sweep).
+
+---
+
+## [2026-11-24 20:30] stage-06 / Background Expiry Sweeper, Internal Endpoints & Distributed Row Locking
+- **Goal**: Implement background expiry scheduler with `node-cron`, distributed row-locking with per-permit savepoints in PostgreSQL, internal `POST /internal/sweep` protected by constant-time secret verification, clock injection for deterministic tests, and comprehensive concurrency validation.
+- **Done**:
+  - Environment Validation (`env.ts`):
+    - Configured `SWEEP_SECRET` with minimum 32 characters requirement.
+    - Added `SWEEP_CRON_SCHEDULE` with default `'* * * * *'` (60 seconds).
+  - Distributed Transaction & Row Locking Engine (`expiry.service.ts` & `transition-engine.ts`):
+    - Reused existing `bulkExpireOverduePermits` service without duplicating business logic.
+    - Implemented outer transaction holding candidate row locks via `SELECT ... FOR UPDATE SKIP LOCKED` continuously throughout the batch until outer `COMMIT`.
+    - Per-permit savepoints (`SAVEPOINT sp_<id>`): prevents partial state, guaranteeing that any individual transition failure rolls back that specific candidate without aborting the batch or leaving a transitioned permit missing its audit entry.
+    - Response semantics: returns `{ scanned: number, expiredCount: number, expiredPermitIds: string[] }` strictly guaranteeing `expiredCount === expiredPermitIds.length`.
+  - Background Sweeper (`expiry-sweeper.ts`):
+    - In-process overlap prevention (`isSweeping` guard + active sweep promise tracking).
+    - Injectable clock dependency (`clock: () => Date`) enabling deterministic unit and integration tests.
+    - Idempotent `startSweeper()` and safe repeated `stopSweeper()` calls.
+    - Cron expression validation (`cron.validate(schedule)`) rejecting invalid expressions before scheduling.
+    - Server startup and graceful shutdown in `server.ts` awaiting active sweep completion before process exit.
+  - Internal Protected Endpoint (`POST /internal/sweep`):
+    - Protected by `X-Sweep-Secret` request header.
+    - Timing-safe constant-time verification using `crypto.timingSafeEqual` after checking equal buffer lengths.
+    - Zero secret leakage: secrets are never logged or returned in responses.
+    - Sanitized identical HTTP 401 response for missing or invalid secrets.
+  - Comprehensive Test Suite (`sweeper.test.ts`):
+    - 13 real PostgreSQL integration tests covering valid internal sweep, 401s on invalid/missing secrets, automated clock injection, multi-instance concurrency, race conditions with permit extensions, repeated sweeps on already-expired permits, batch savepoint atomicity, invalid cron expression validation, idempotent `startSweeper()`, safe repeated `stopSweeper()`, secret leakage prevention, and simultaneous dashboard read concurrency.
+- **Commits**:
+  - `3489cbe` feat(config): validate SWEEP_SECRET minimum 32 characters and add SWEEP_CRON_SCHEDULE in environment schema
+  - `bb2e5cc` feat(permits): hold row locks across batch and use savepoints in bulkExpireOverduePermits
+  - `ab40d79` feat(sweeper): implement background node-cron expiry sweeper with injectable clock and lifecycle management
+  - `b53c28c` feat(internal): implement POST /internal/sweep protected by timing-safe X-Sweep-Secret verification
+  - `cab7ed0` test(sweeper): add comprehensive test suite for cron sweeper, internal endpoint, and concurrent locking
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run build` -> tsc compiled cleanly across all workspaces.
+  - `npm test` -> 180/180 tests passing (6 shared + 174 api) across 8 test suites against real PostgreSQL database `ptw_cmms_test`.
+- **Decisions**:
+  - D-022 (Background Expiry Sweeper, Distributed Row-Locking Architecture & Internal Endpoint Security).
+- **Next**: Review and approve Stage 6 report, merge into main, tag stage-06, and wait for approval before Stage 7.
