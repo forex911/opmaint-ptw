@@ -470,4 +470,65 @@ describe('Background Expiry Sweeper & Internal Endpoints', () => {
       expect(Number(auditCount.rows[0].count)).toBe(1);
     }
   }, 25000);
+
+  // 15. Timestamp boundary test: now >= plannedEnd (inclusive boundary)
+  it('expires permit when planned_end exactly equals injected clock timestamp (inclusive boundary now >= plannedEnd)', async () => {
+    const exactBoundaryTime = new Date('2026-11-25T12:00:00.000Z');
+    const startTime = new Date('2026-11-25T08:00:00.000Z');
+
+    // Permit A: planned_end exactly matches exactBoundaryTime
+    const permitNoA = `PTW-BND-${Date.now()}-EXACT`;
+    const resA = await pool.query(
+      `INSERT INTO permits (
+        permit_no, type, status, requester_id, contractor_team, work_description,
+        plant_id, area_id, equipment_id, planned_start, planned_end, created_at, version
+      ) VALUES (
+        $1, 'HOT_WORK', 'ACTIVE', $2,
+        'Boundary Test Team A', 'Testing exact equality boundary',
+        $3, $4, $5,
+        $6, $7, NOW(), 1
+      ) RETURNING id`,
+      [permitNoA, requesterUserId, plant1Id, area1Id, equipment1Id, startTime, exactBoundaryTime]
+    );
+    const permitAId = resA.rows[0].id;
+
+    // Permit B: planned_end is 1 second in the future (not yet elapsed)
+    const futureTime = new Date(exactBoundaryTime.getTime() + 1000);
+    const permitNoB = `PTW-BND-${Date.now()}-FUTUR`;
+    const resB = await pool.query(
+      `INSERT INTO permits (
+        permit_no, type, status, requester_id, contractor_team, work_description,
+        plant_id, area_id, equipment_id, planned_start, planned_end, created_at, version
+      ) VALUES (
+        $1, 'HOT_WORK', 'ACTIVE', $2,
+        'Boundary Test Team B', 'Testing future window boundary',
+        $3, $4, $5,
+        $6, $7, NOW(), 1
+      ) RETURNING id`,
+      [permitNoB, requesterUserId, plant1Id, area1Id, equipment1Id, startTime, futureTime]
+    );
+    const permitBId = resB.rows[0].id;
+
+    // Run sweep with injected clock set to exactBoundaryTime
+    const sweepResult = await bulkExpireOverduePermits(pool, exactBoundaryTime);
+
+    // Permit A must be expired because planned_end <= now (now >= plannedEnd)
+    expect(sweepResult.expiredPermitIds).toContain(permitAId);
+
+    const checkA = await pool.query('SELECT status FROM permits WHERE id = $1', [permitAId]);
+    expect(checkA.rows[0].status).toBe(PermitStatus.EXPIRED);
+
+    // Permit B must remain ACTIVE because planned_end > now
+    expect(sweepResult.expiredPermitIds).not.toContain(permitBId);
+    const checkB = await pool.query('SELECT status FROM permits WHERE id = $1', [permitBId]);
+    expect(checkB.rows[0].status).toBe(PermitStatus.ACTIVE);
+
+    // Verify audit log for Permit A exists with actor_id NULL (System)
+    const auditA = await pool.query(
+      `SELECT action, actor_id, comment FROM audit_log WHERE permit_id = $1 AND action = 'expire'`,
+      [permitAId]
+    );
+    expect(auditA.rows.length).toBe(1);
+    expect(auditA.rows[0].actor_id).toBeNull();
+  });
 });

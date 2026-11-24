@@ -29,4 +29,9 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Severity**: None / Resolved.
 - **Status**: Packages installed and verified; CI workflow tests against real PostgreSQL.
 
+### 6. Production SWEEP_SECRET Generation Requirement
+- **Description**: In production environments (`NODE_ENV=production`), `SWEEP_SECRET` is strictly required and cannot fall back to the development test secret (`sweep-secret-cron-token-industrial-ptw!`) or template placeholders (`YOUR_PRODUCTION_SWEEP_SECRET_MIN_32_CHARS_LONG`). Missing or template values immediately halt process initialization with an informative error.
+- **Mitigation & Deployment Procedure**: Operators must generate a high-entropy secret using `openssl rand -hex 32` and provide it via the deployment environment configuration. Secrets must never be committed to source control.
+- **Status**: Enforced in `env.ts` with 8 automated unit tests in `env.test.ts`.
+
 

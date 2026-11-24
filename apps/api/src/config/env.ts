@@ -6,7 +6,9 @@ import cron from 'node-cron';
 // Load .env file from root or local api folder if present
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
-const envSchema = z.object({
+export const KNOWN_DEV_SWEEP_SECRET = 'sweep-secret-cron-token-industrial-ptw!';
+
+export const baseEnvSchema = z.object({
   PORT: z.coerce.number().default(4000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required').default('postgres://ptw_app_user:ptw_app_pass@localhost:5432/ptw_cmms'),
@@ -17,7 +19,7 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('8h'),
   COOKIE_NAME: z.string().default('ptw_token'),
   COOKIE_SECRET: z.string().min(16).default('cookie-secret-key-industrial-ptw!'),
-  SWEEP_SECRET: z.string().min(32, 'SWEEP_SECRET must be at least 32 characters long').default('sweep-secret-cron-token-industrial-ptw!'),
+  SWEEP_SECRET: z.string().optional(),
   SWEEP_CRON_SCHEDULE: z
     .string()
     .default('* * * * *')
@@ -27,12 +29,63 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
 });
 
+export const envSchema = baseEnvSchema
+  .superRefine((data, ctx) => {
+    const isProduction = data.NODE_ENV === 'production';
+
+    // 1. In production, SWEEP_SECRET must be explicitly provided
+    if (isProduction) {
+      if (!data.SWEEP_SECRET || data.SWEEP_SECRET.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SWEEP_SECRET'],
+          message: 'SWEEP_SECRET is required in production and cannot fall back to a default value',
+        });
+        return;
+      }
+
+      // 2. In production, never permit the known dev fallback or unedited placeholders
+      if (
+        data.SWEEP_SECRET === KNOWN_DEV_SWEEP_SECRET ||
+        data.SWEEP_SECRET.includes('YOUR_PRODUCTION_SWEEP_SECRET') ||
+        data.SWEEP_SECRET.startsWith('CHANGE_ME')
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['SWEEP_SECRET'],
+          message: 'SWEEP_SECRET in production must not use the known development fallback or placeholder secret',
+        });
+        return;
+      }
+    }
+
+    // 3. Resolve effective secret for validation
+    const effectiveSecret = data.SWEEP_SECRET || (data.NODE_ENV !== 'production' ? KNOWN_DEV_SWEEP_SECRET : '');
+
+    // 4. Validate minimum 32-character requirement
+    if (effectiveSecret.length < 32) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['SWEEP_SECRET'],
+        message: 'SWEEP_SECRET must be at least 32 characters long',
+      });
+    }
+  })
+  .transform((data) => ({
+    ...data,
+    SWEEP_SECRET: data.SWEEP_SECRET || KNOWN_DEV_SWEEP_SECRET,
+  }));
+
 export type Env = z.infer<typeof envSchema>;
+
+export function parseEnv(rawEnv: Record<string, unknown> = process.env): Env {
+  return envSchema.parse(rawEnv);
+}
 
 let parsedEnv: Env;
 
 try {
-  parsedEnv = envSchema.parse(process.env);
+  parsedEnv = parseEnv(process.env);
 } catch (error) {
   if (error instanceof z.ZodError) {
     const formatted = error.issues
