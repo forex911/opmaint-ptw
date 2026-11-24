@@ -286,4 +286,39 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm test` -> 162/162 tests passing (6 shared + 156 api) against real PostgreSQL database `ptw_cmms_test`.
 - **Decisions**:
   - D-020 (Universal Read Visibility Model for Plant Safety).
-- **Next**: Merge into main, tag `stage-05`, and plan Stage 5b (Admin CRUD for users, plants, areas, and equipment).
+- **Next**: Deliver Stage 5b review fixes and Stage 5c spec-compliance HTTP test suite, then proceed to Stage 6 (node-cron sweeper and POST /internal/sweep).
+
+---
+
+## [2026-11-24 20:00] stage-05b & stage-05c / Review Fixes, Guard Status Alignment & Spec-Compliance HTTP Suite
+- **Goal**: Deliver all Stage 5b review fixes and implement Stage 5c HTTP specification compliance test suite using supertest against seeded demo users.
+- **Done**:
+  - Fix 1 (PATCH in PENDING_APPROVAL per D-021): Retains `status = 'PENDING_APPROVAL'` (no transition back to `DRAFT`). Resets existing `permit_approvals` rows to `PENDING` (`decided_by = NULL`, `decided_at = NULL`, `comment = NULL`). Inserts individual field diff audit records plus one `approvals_reset` audit record documenting previously signed-off tiers.
+  - Fix 2 (Concurrency-Safe Bulk Expiry): Implemented row locking with `SELECT id FROM permits WHERE ... FOR UPDATE SKIP LOCKED` inside `bulkExpireOverduePermits`, preventing concurrent worker races while preserving serialization. Tested with 6 concurrent GET requests yielding exactly one `expire` audit row.
+  - Fix 3 (SQL-Level `pendingMyApproval` Filter & Pagination): Pushed role/user matching and duties separation subqueries directly into SQL `whereClauses`, guaranteeing accurate `total`, `totalPages`, and collision-free pagination across multiple pages.
+  - Fix 4 (Stage Numbering Alignment): Aligned project roadmap so Background Sweeper is Stage 6 and Permit Extensions are Stage 7 across all documentation.
+  - Fix 5 (Guard Status Code Mapping to 422 per D-005): Mapped `MISSING_COMMENT` and `MISSING_COMPLETION_NOTES` to HTTP 422 in `GUARD_STATUS_MAP` and updated corresponding API and transition tests.
+  - Stage 5c (HTTP Spec-Compliance Suite, `spec-compliance.test.ts`): Built 9 exhaustive end-to-end HTTP tests using `supertest` with all 4 seeded credentials:
+    1. Direct API illegal transitions return 409 with `allowedActions` (draft -> activate, pending -> close, approved -> suspend, plus terminal states returning empty `allowedActions: []`).
+    2. Self-approval blocked with 403 `FORBIDDEN_SELF_APPROVAL` even for admin users.
+    3. Area owner cannot approve permit in unassigned area (403 `FORBIDDEN_AREA_MISMATCH`).
+    4. Activation barriers: early activation before `planned_start` returns 409 `EARLY_ACTIVATION`, activation while `PENDING_APPROVAL` returns 409 `ILLEGAL_TRANSITION`.
+    5. Expired permits are terminal: cannot reactivate, resume, or close.
+    6. Work logs on non-active permits return 409 `ILLEGAL_TRANSITION`.
+    7. Input validation barriers: reject without comment returns 422 `MISSING_COMMENT`, suspend without reason returns 422 `MISSING_COMMENT`, close without notes returns 422 `MISSING_COMPLETION_NOTES`.
+    8. Immutable audit records written for all lifecycle actions: `create`, `update`, `submit`, `approve` (both tiers), `activate`, `close`, `verify`.
+    9. Dynamic `allowedActions` strictly matches runtime execution: all listed actions succeed (200), unlisted actions fail (409/403).
+- **Commits**:
+  - `f90a1a5` fix(permits): retain PENDING_APPROVAL status and approval rows on PATCH, resetting approvals and recording diffs per D-021
+  - `3e26e2a` fix(permits): make bulk expiry concurrency-safe using FOR UPDATE SKIP LOCKED and verify exactly one audit row
+  - `0be4660` fix(permits): push pendingMyApproval filter to SQL for accurate pagination, total, and pages
+  - `eb11c6d` docs: reconcile sweeper numbering to Stage 6 and extensions to Stage 7
+  - `3dc36bd` fix(permits): map missing comment and completion notes to 422 validation errors per D-005
+  - `42eb7d6` test(permits): add HTTP spec-compliance test suite verifying all assignment rules via supertest
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all workspaces.
+  - `npm run lint` -> clean across all workspaces.
+  - `npm test` -> 167/167 tests passing (6 shared + 161 api) across 7 test suites against real PostgreSQL database `ptw_cmms_test`.
+- **Decisions**:
+  - D-021 (Pending Approval Edit Retention and Approvals Invalidation).
+- **Next**: Merge stage/05b-fixes into main, tag stage-05b, and proceed to Stage 6 (node-cron sweeper and POST /internal/sweep).

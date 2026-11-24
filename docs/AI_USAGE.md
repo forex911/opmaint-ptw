@@ -105,6 +105,21 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 4 (List Query Pagination and Test Determinism)**: With 1100+ permits generated across the test suites, `permits.test.ts`'s bulk expiry test sorted by `created_at DESC` and missed the overdue test permit when default pagination limit was 20. Updated the test helper to generate a fresh unique permit number with `created_at = NOW()`, ensuring deterministic placement at the head of the list.
   - **Correction 5 (Seed Sequence Uniqueness Assertion)**: In `schema.test.ts`, the seed sequence test asserted that `getNextPermitNumber` returned strictly `PTW-YYYY-0012`. When subsequent tests generated additional sequence numbers, the count was 32 rather than 12. Updated `schema.test.ts` to assert that `nextPermitNo` matches the format and has zero collisions (`existing.rows.length === 0`), verifying true uniqueness as required by the specification.
 
+---
+
+## Stage 5b & 5c: Review Fixes, Guard Status Alignment & Spec-Compliance HTTP Suite
+- **AI-Assisted Deliverables**:
+  - Implemented `D-021` approval invalidation logic in `permits.service.ts` for PATCH while in `PENDING_APPROVAL`.
+  - Concurrency-safe bulk expiry using PostgreSQL row-level locks (`SELECT ... FOR UPDATE SKIP LOCKED`).
+  - SQL-pushed `pendingMyApproval` filtering with subqueries for robust pagination calculations.
+  - Guard status code mapping update (`GUARD_STATUS_MAP`) mapping `MISSING_COMMENT` and `MISSING_COMPLETION_NOTES` to HTTP 422.
+  - Comprehensive specification compliance HTTP test suite in `apps/api/src/modules/permits/spec-compliance.test.ts` covering all 9 domain assignment rules.
+- **Human Review & Corrections**:
+  - **Correction 1 (Supertest Cookie Agent Session Handling)**: Initial compliance tests invoked raw `request(app)` rather than `request.agent(app)`, causing cookie-only JWT sessions to be lost across sequential requests. Configured dedicated agents for each of the 4 seeded demo roles (`requesterAgent`, `areaOwnerAgent`, `safetyOfficerAgent`, `adminAgent`).
+  - **Correction 2 (Role Alignment on Suspend Guard Check)**: In `spec-compliance.test.ts`, `requesterAgent` attempted to trigger the `MISSING_COMMENT` guard on `/suspend`. Because `transitions.ts` restricts `suspend` to `SAFETY_OFFICER` and `ADMIN`, `transition()` rejected the requester with 409 `ILLEGAL_TRANSITION` before guard evaluation. Updated the test to use `safetyOfficerAgent`, accurately asserting the 422 `MISSING_COMMENT` error code.
+  - **Correction 3 (Top-Level allowedActions Property Resolution)**: In `spec-compliance.test.ts`, tests initially inspected `res.body.permit.allowedActions`. `getPermitById` returns `{ permit, approvals, workLogs, allowedActions }` where `allowedActions` resides at the top level. Updated property assertions to read `res.body.allowedActions`.
+
+
 
 
 

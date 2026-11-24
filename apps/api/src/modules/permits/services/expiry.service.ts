@@ -12,27 +12,41 @@ export async function bulkExpireOverduePermits(
   pool: Pool,
   now: Date = new Date()
 ): Promise<number> {
-  // Query all candidate overdue permits
-  const res = await pool.query(
-    `SELECT id, status 
-     FROM permits 
-     WHERE status IN ($1, $2, $3, $4) 
-       AND planned_end <= $5`,
-    [
-      PermitStatus.PENDING_APPROVAL,
-      PermitStatus.APPROVED,
-      PermitStatus.ACTIVE,
-      PermitStatus.SUSPENDED,
-      now,
-    ]
-  );
+  const client = await pool.connect();
+  let candidateIds: string[] = [];
+
+  try {
+    await client.query('BEGIN');
+    // Lock candidate rows with SKIP LOCKED so concurrent bulk expiry calls do not select or process the same rows
+    const res = await client.query(
+      `SELECT id 
+       FROM permits 
+       WHERE status IN ($1, $2, $3, $4) 
+         AND planned_end <= $5
+       FOR UPDATE SKIP LOCKED`,
+      [
+        PermitStatus.PENDING_APPROVAL,
+        PermitStatus.APPROVED,
+        PermitStatus.ACTIVE,
+        PermitStatus.SUSPENDED,
+        now,
+      ]
+    );
+    candidateIds = res.rows.map((r) => r.id);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 
   let expiredCount = 0;
 
-  for (const row of res.rows) {
+  for (const id of candidateIds) {
     try {
       await transition(
-        row.id,
+        id,
         'expire',
         { id: null, role: 'SYSTEM' },
         { comment: 'Automated bulk lazy expiry: planned_end window elapsed' },

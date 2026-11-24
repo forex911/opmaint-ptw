@@ -211,6 +211,10 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
     let initialVersion: number;
 
     beforeAll(async () => {
+      const nowMs = Date.now();
+      const pStart = new Date(nowMs + 3600000).toISOString();
+      const pEnd = new Date(nowMs + 86400000).toISOString();
+
       const res = await requesterAgent
         .post('/api/permits')
         .send({
@@ -220,14 +224,14 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
           equipmentId: equipment1Id,
           contractorTeam: 'Pre-patch Team',
           workDescription: 'Permit for patch tests',
-          plannedStart: '2026-07-01T08:00:00.000Z',
-          plannedEnd: '2026-07-01T16:00:00.000Z',
+          plannedStart: pStart,
+          plannedEnd: pEnd,
           details: {
             hot_work_type: 'welding',
             fire_watch_assigned: true,
             extinguisher_type: 'CO2',
             combustibles_cleared_radius_m: 15,
-            gas_test: { lel_pct: 0, o2_pct: 20.9, tested_at: '2026-07-01T07:30:00.000Z' },
+            gas_test: { lel_pct: 0, o2_pct: 20.9, tested_at: new Date(nowMs).toISOString() },
           },
         })
         .expect(201);
@@ -294,12 +298,22 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       expect(auditRes.rows.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('resets approvals to DRAFT when editing a permit in PENDING_APPROVAL', async () => {
+    it('resets approvals to PENDING (retaining rows and status) when editing a permit in PENDING_APPROVAL', async () => {
       // 1. Submit the permit so it enters PENDING_APPROVAL
       const submitRes = await requesterAgent.post(`/api/permits/${testPermitId}/submit`).expect(200);
       expect(submitRes.body.permit.status).toBe(PermitStatus.PENDING_APPROVAL);
 
-      const currentVer = submitRes.body.permit.version;
+      // Area owner signs off first tier
+      await areaOwnerAgent
+        .post(`/api/permits/${testPermitId}/approve`)
+        .send({ comment: 'Initial area owner sign-off' })
+        .expect(200);
+
+      // Verify one approval is APPROVED
+      const midApps = await pool.query('SELECT * FROM permit_approvals WHERE permit_id = $1', [testPermitId]);
+      expect(midApps.rows.some((r) => r.status === 'APPROVED')).toBe(true);
+
+      const currentVer = (await pool.query('SELECT version FROM permits WHERE id = $1', [testPermitId])).rows[0].version;
 
       // 2. Edit the permit while PENDING_APPROVAL
       const patchRes = await requesterAgent
@@ -310,20 +324,30 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
         });
 
       expect(patchRes.status).toBe(200);
-      expect(patchRes.body.permit.status).toBe(PermitStatus.DRAFT);
+      // Status must remain PENDING_APPROVAL per D-021
+      expect(patchRes.body.permit.status).toBe(PermitStatus.PENDING_APPROVAL);
+      expect(patchRes.body.permit.version).toBe(currentVer + 1);
 
-      // Verify approval rows were cleared
+      // 3. Verify approval rows were KEPT and reset to PENDING
       const appRes = await pool.query('SELECT * FROM permit_approvals WHERE permit_id = $1', [
         testPermitId,
       ]);
-      expect(appRes.rows.length).toBe(0);
+      expect(appRes.rows.length).toBeGreaterThan(0);
+      expect(appRes.rows.every((r) => r.status === 'PENDING' && r.decided_by === null)).toBe(true);
 
-      // Verify reset_approvals audit row
-      const auditRes = await pool.query(
+      // 4. Verify audit rows: field diff row + approvals_reset row listing who had approved
+      const fieldAuditRes = await pool.query(
         'SELECT * FROM audit_log WHERE permit_id = $1 AND action = $2',
-        [testPermitId, 'reset_approvals']
+        [testPermitId, 'update']
       );
-      expect(auditRes.rows.length).toBe(1);
+      expect(fieldAuditRes.rows.length).toBeGreaterThanOrEqual(1);
+
+      const resetAuditRes = await pool.query(
+        'SELECT * FROM audit_log WHERE permit_id = $1 AND action = $2',
+        [testPermitId, 'approvals_reset']
+      );
+      expect(resetAuditRes.rows.length).toBe(1);
+      expect(resetAuditRes.rows[0].from_value.previouslyApproved.length).toBe(1);
     });
   });
 
@@ -377,6 +401,48 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       expect(statsRes.body.pendingMyApproval).toBeDefined();
     });
 
+    it('handles concurrent GET /api/permits calls idempotently with exactly one audit row per expired permit', async () => {
+      const pNo = `PTW-RACE-EXP-${Date.now()}`;
+      const insRes = await pool.query(
+        `INSERT INTO permits (
+          permit_no, type, status, requester_id, contractor_team, work_description,
+          plant_id, area_id, equipment_id, planned_start, planned_end, created_at, version
+        ) VALUES (
+          $1, 'HOT_WORK', 'ACTIVE',
+          (SELECT id FROM users WHERE email = 'requester@cmms.local'),
+          'Race Crew', 'Testing concurrent lazy expiry',
+          $2, $3, $4,
+          NOW() - INTERVAL '3 hours',
+          NOW() - INTERVAL '30 minutes',
+          NOW(),
+          1
+        ) RETURNING id`,
+        [pNo, plant1Id, area1Id, equipment1Id]
+      );
+      const testPId = insRes.rows[0].id;
+
+      // Fire 6 concurrent GET requests from different users
+      await Promise.all([
+        requesterAgent.get('/api/permits'),
+        requesterAgent.get('/api/permits'),
+        areaOwnerAgent.get('/api/permits'),
+        safetyOfficerAgent.get('/api/permits'),
+        adminAgent.get('/api/permits'),
+        requesterAgent.get('/api/permits/stats'),
+      ]);
+
+      // Verify the permit is EXPIRED
+      const checkRes = await pool.query('SELECT status FROM permits WHERE id = $1', [testPId]);
+      expect(checkRes.rows[0].status).toBe(PermitStatus.EXPIRED);
+
+      // Verify exactly ONE audit log row exists for this expiry action
+      const auditRes = await pool.query(
+        "SELECT * FROM audit_log WHERE permit_id = $1 AND action = 'expire'",
+        [testPId]
+      );
+      expect(auditRes.rows.length).toBe(1);
+    });
+
     it('enforces pagination: default 20, max limit 100, and returns total pages', async () => {
       const res = await requesterAgent.get('/api/permits?page=1&limit=5').expect(200);
       expect(res.body.items.length).toBeLessThanOrEqual(5);
@@ -395,6 +461,67 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
 
       const mineRes = await requesterAgent.get('/api/permits?mine=true').expect(200);
       expect(mineRes.body.items.length).toBeGreaterThan(0);
+    });
+
+    it('paginates pendingMyApproval correctly with accurate total and totalPages across pages', async () => {
+      // Find the area owner user ID
+      const aoUserRes = await pool.query("SELECT id FROM users WHERE email = 'area.owner@cmms.local'");
+      const aoUserId = aoUserRes.rows[0].id;
+
+      // Insert 5 permits in PENDING_APPROVAL that require area owner's approval
+      const insertedIds: string[] = [];
+      for (let i = 0; i < 5; i++) {
+        const pNo = `PTW-PAG-TEST-${Date.now()}-${i}`;
+        const pRes = await pool.query(
+          `INSERT INTO permits (
+            permit_no, type, status, requester_id, contractor_team, work_description,
+            plant_id, area_id, equipment_id, planned_start, planned_end, created_at, version
+          ) VALUES (
+            $1, 'HOT_WORK', 'PENDING_APPROVAL',
+            (SELECT id FROM users WHERE email = 'requester@cmms.local'),
+            'Pagination Team', 'Testing pendingMyApproval pagination',
+            $2, $3, $4,
+            NOW() + INTERVAL '2 hours',
+            NOW() + INTERVAL '10 hours',
+            NOW() - INTERVAL '${i} minutes',
+            1
+          ) RETURNING id`,
+          [pNo, plant1Id, area1Id, equipment1Id]
+        );
+        const pId = pRes.rows[0].id;
+        insertedIds.push(pId);
+
+        // Add pending approval row for Area Owner
+        await pool.query(
+          `INSERT INTO permit_approvals (permit_id, required_role, required_user_id, status)
+           VALUES ($1, 'AREA_OWNER', $2, 'PENDING')`,
+          [pId, aoUserId]
+        );
+      }
+
+      // Query page 1 with limit=2 as Area Owner
+      const page1Res = await areaOwnerAgent
+        .get('/api/permits?pendingMyApproval=true&page=1&limit=2')
+        .expect(200);
+
+      expect(page1Res.body.pagination.total).toBeGreaterThanOrEqual(5);
+      expect(page1Res.body.pagination.totalPages).toBeGreaterThanOrEqual(3);
+      expect(page1Res.body.pagination.page).toBe(1);
+      expect(page1Res.body.pagination.limit).toBe(2);
+      expect(page1Res.body.items.length).toBe(2);
+
+      // Query page 2 with limit=2 as Area Owner
+      const page2Res = await areaOwnerAgent
+        .get('/api/permits?pendingMyApproval=true&page=2&limit=2')
+        .expect(200);
+
+      expect(page2Res.body.pagination.page).toBe(2);
+      expect(page2Res.body.items.length).toBe(2);
+
+      // Verify no overlap between page 1 and page 2 items
+      const page1Ids = page1Res.body.items.map((i: any) => i.id);
+      const page2Ids = page2Res.body.items.map((i: any) => i.id);
+      expect(page1Ids.some((id: string) => page2Ids.includes(id))).toBe(false);
     });
   });
 
@@ -570,8 +697,8 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       const actRes = await requesterAgent.post(`/api/permits/${pId}/activate`).expect(200);
       expect(actRes.body.permit.status).toBe(PermitStatus.ACTIVE);
 
-      // 6. Close: requires completion notes
-      await requesterAgent.post(`/api/permits/${pId}/close`).send({ completion_notes: '' }).expect(409);
+      // 6. Close: requires completion notes (returns 422 per D-005)
+      await requesterAgent.post(`/api/permits/${pId}/close`).send({ completion_notes: '' }).expect(422);
 
       const closeRes = await requesterAgent
         .post(`/api/permits/${pId}/close`)

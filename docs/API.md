@@ -28,10 +28,10 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 - `409 EARLY_ACTIVATION`: Cannot activate permit before `planned_start`.
 - `409 STALE_GAS_TEST`: For `CONFINED_SPACE` permits, atmospheric gas test must be verified within 60 minutes of activation (D-010).
 - `409 PENDING_APPROVALS`: All approval tiers must be `APPROVED` before activation.
-- `409 MISSING_COMPLETION_NOTES`: Mandatory completion notes required when closing a permit.
-- `409 MISSING_COMMENT`: Mandatory comment required for `reject`, `suspend`, and `cancel`.
 - `409 DUTIES_SEPARATION_VIOLATION`: Same individual cannot sign off multiple approval tiers on the same permit (D-019).
 - `422 VALIDATION_ERROR`: Zod validation failure. Details include `{ path, message, code }[]`.
+- `422 MISSING_COMPLETION_NOTES`: Mandatory completion notes required when closing a permit (D-005).
+- `422 MISSING_COMMENT`: Mandatory comment required for `reject`, `suspend`, and `cancel` (D-005).
 
 ---
 
