@@ -114,7 +114,7 @@ This log records every architectural decision, rejected alternative, and trade-o
   - *Option A*: Validate atmospheric test only at permit submission.
   - *Option B*: Enforce that during `activate`, if the permit type is `CONFINED_SPACE`, the atmosphere test timestamp must be fresh (`now - tested_at <= 60 minutes`). If more than 60 minutes have elapsed between testing and activation, activation is blocked until fresh readings are recorded.
 - **Decision**: Option B — Server-side guard on the `activate` transition verifies that `CONFINED_SPACE` permits have an atmosphere test recorded within 60 minutes prior to activation time.
-- **Consequences**: Workers are strictly protected from entering a confined space based on stale atmosphere measurements, adhering to OSHA 1910.146 and UK HSE confined space entry standards.
+- **Consequences**: Workers are strictly protected from entering a confined space based on stale atmosphere measurements, adhering to statutory compliance requirements expected by factory safety regulators and auditors (such as statutory confined space entry rules and industrial health & safety directorates).
 - **Status**: Accepted
 
 ---
