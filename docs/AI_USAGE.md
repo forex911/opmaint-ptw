@@ -86,5 +86,25 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 3 (Vitest .toThrow Assertion Matching)**: Vitest's `expect(...).rejects.toThrow(regex)` inspects `error.message` rather than custom properties like `error.code`. Custom `AppError` instances contain distinct error codes (e.g. `EARLY_ACTIVATION`, `STALE_GAS_TEST`, `MISSING_COMPLETION_NOTES`) while their messages are descriptive sentences. Replaced generic `.toThrow()` checks with structured `try/catch` blocks verifying both `err.statusCode === 409`, `err.code`, and descriptive messages.
   - **Correction 4 (Sequence Advancement Pattern Match)**: In `apps/api/src/db/seed.ts`, sequence advancement queried `SELECT MAX(SUBSTRING(permit_no FROM '\\d+$')::INTEGER)`. Test permits generated with random hexadecimal suffixes ending in digits (e.g. `PTW-TEST-...-VEV2F4`) caused `\d+$` to match trailing digits (`4`), skewing sequence alignment. Refined the query to strictly match standard production permit numbers (`WHERE permit_no ~ '^PTW-\\d{4}-\\d{4}$'` and `SUBSTRING(permit_no FROM '\\d{4}$')`).
 
+---
+
+## Stage 5: Permit Endpoints, Filtering, Concurrency & Work Logs
+- **AI-Assisted Deliverables**:
+  - Reference data endpoints `GET /api/plants`, `/api/areas`, `/api/equipment` joined with owner details.
+  - Location consistency validator `validateLocationConsistency` ensuring equipment is in area and area is in plant.
+  - Bulk lazy expiry service `bulkExpireOverduePermits` scanning overdue permits and updating PostgreSQL state before queries execute.
+  - Zod validation schemas (`createPermitSchema`, `updatePermitSchema`, `listPermitsQuerySchema`, `createWorkLogSchema`) with strict mass assignment whitelisting.
+  - Permit endpoints service (`permits.service.ts`) handling create, update, getById, list, stats, audit timeline, and work logs.
+  - Controller actions (`permits.controller.ts`) and Express routes (`permits.routes.ts`) mounting CRUD and all 9 state machine transition actions.
+  - Decision record `D-020` on universal read visibility model.
+  - Comprehensive integration test suite `apps/api/src/modules/permits/permits.test.ts` (19 test cases).
+- **Human Review & Corrections**:
+  - **Correction 1 (Postgres TEXT Array Serialization)**: In `permits.service.ts`, `hazards` and `ppe` were passed to PostgreSQL as `JSON.stringify(...)`. In Postgres, `TEXT[]` columns expect native array parameters (`string[]`), not JSON strings; passing JSON strings caused `malformed array literal` exceptions. Corrected `createPermit` and `updatePermit` to pass native JavaScript arrays directly.
+  - **Correction 2 (Shared Registry Export for Permit Types)**: `ALL_PERMIT_TYPE_CODES` was imported in the API schema from `@ptw/shared` but had not been explicitly exported from `definitions.ts`. Exported `ALL_PERMIT_TYPE_CODES` as a const tuple, preventing runtime Zod `Cannot read properties of undefined (reading 'map')` exceptions.
+  - **Correction 3 (Validation Middleware ZodEffects Support)**: `validate` middleware typed `schemas.body` as `AnyZodObject`. `createPermitSchema` uses `.refine(...)` to enforce `plannedEnd > plannedStart`, making it a `ZodEffects<ZodObject>`. Updated `ValidationSchemas` interface in `validate.ts` to accept `ZodTypeAny`.
+  - **Correction 4 (List Query Pagination and Test Determinism)**: With 1100+ permits generated across the test suites, `permits.test.ts`'s bulk expiry test sorted by `created_at DESC` and missed the overdue test permit when default pagination limit was 20. Updated the test helper to generate a fresh unique permit number with `created_at = NOW()`, ensuring deterministic placement at the head of the list.
+  - **Correction 5 (Seed Sequence Uniqueness Assertion)**: In `schema.test.ts`, the seed sequence test asserted that `getNextPermitNumber` returned strictly `PTW-YYYY-0012`. When subsequent tests generated additional sequence numbers, the count was 32 rather than 12. Updated `schema.test.ts` to assert that `nextPermitNo` matches the format and has zero collisions (`existing.rows.length === 0`), verifying true uniqueness as required by the specification.
+
+
 
 

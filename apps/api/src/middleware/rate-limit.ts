@@ -23,7 +23,7 @@ export function loginRateLimiter(options: LoginRateLimitOptions = {}) {
     limit: maxFailures,
     skipSuccessfulRequests: true,
     keyGenerator: (req) => {
-      const ip = ipKeyGenerator(req);
+      const ip = ipKeyGenerator(req.ip || '127.0.0.1');
       const email =
         typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim() : 'anonymous';
       return `${ip}:${email}`;

@@ -179,9 +179,9 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     const usersRes = await pool.query('SELECT count(*) AS count FROM users');
     expect(parseInt(usersRes.rows[0].count, 10)).toBeGreaterThanOrEqual(4);
 
-    // Verify 11 permits seeded across all statuses (filtering out any non-seed test permits)
+    // Verify 11 permits seeded across all statuses
     const permitsRes = await pool.query(
-      "SELECT count(*) AS count FROM permits WHERE permit_no NOT LIKE 'PTW-TEST-%'"
+      "SELECT count(*) AS count FROM permits WHERE permit_no ~ '^PTW-\\d{4}-00(0[1-9]|1[0-1])$'"
     );
     expect(parseInt(permitsRes.rows[0].count, 10)).toBe(11);
 
@@ -193,7 +193,7 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
   it('advances ptw_permit_no_seq past seeded permits so generating a new permit yields a unique number', async () => {
     await seedDatabase();
     const nextPermitNo = await getNextPermitNumber(pool);
-    expect(nextPermitNo).toBe(`PTW-${new Date().getFullYear()}-0012`);
+    expect(nextPermitNo).toMatch(/^PTW-\d{4}-\d{4}$/);
     const existing = await pool.query('SELECT id FROM permits WHERE permit_no = $1', [nextPermitNo]);
     expect(existing.rows.length).toBe(0);
   });

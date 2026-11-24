@@ -10,6 +10,13 @@ export const PermitTypeCode = {
 
 export type PermitTypeCode = (typeof PermitTypeCode)[keyof typeof PermitTypeCode];
 
+export const ALL_PERMIT_TYPE_CODES: readonly PermitTypeCode[] = [
+  PermitTypeCode.HOT_WORK,
+  PermitTypeCode.CONFINED_SPACE,
+  PermitTypeCode.WORKING_AT_HEIGHT,
+  PermitTypeCode.ELECTRICAL_LOTO,
+] as const;
+
 export const HOT_WORK_FIELDS: readonly FieldDefinition[] = [
   {
     key: 'hot_work_type',
