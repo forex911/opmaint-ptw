@@ -211,6 +211,10 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
     let initialVersion: number;
 
     beforeAll(async () => {
+      const nowMs = Date.now();
+      const pStart = new Date(nowMs + 3600000).toISOString();
+      const pEnd = new Date(nowMs + 86400000).toISOString();
+
       const res = await requesterAgent
         .post('/api/permits')
         .send({
@@ -220,14 +224,14 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
           equipmentId: equipment1Id,
           contractorTeam: 'Pre-patch Team',
           workDescription: 'Permit for patch tests',
-          plannedStart: '2026-07-01T08:00:00.000Z',
-          plannedEnd: '2026-07-01T16:00:00.000Z',
+          plannedStart: pStart,
+          plannedEnd: pEnd,
           details: {
             hot_work_type: 'welding',
             fire_watch_assigned: true,
             extinguisher_type: 'CO2',
             combustibles_cleared_radius_m: 15,
-            gas_test: { lel_pct: 0, o2_pct: 20.9, tested_at: '2026-07-01T07:30:00.000Z' },
+            gas_test: { lel_pct: 0, o2_pct: 20.9, tested_at: new Date(nowMs).toISOString() },
           },
         })
         .expect(201);
@@ -294,12 +298,22 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       expect(auditRes.rows.length).toBeGreaterThanOrEqual(1);
     });
 
-    it('resets approvals to DRAFT when editing a permit in PENDING_APPROVAL', async () => {
+    it('resets approvals to PENDING (retaining rows and status) when editing a permit in PENDING_APPROVAL', async () => {
       // 1. Submit the permit so it enters PENDING_APPROVAL
       const submitRes = await requesterAgent.post(`/api/permits/${testPermitId}/submit`).expect(200);
       expect(submitRes.body.permit.status).toBe(PermitStatus.PENDING_APPROVAL);
 
-      const currentVer = submitRes.body.permit.version;
+      // Area owner signs off first tier
+      await areaOwnerAgent
+        .post(`/api/permits/${testPermitId}/approve`)
+        .send({ comment: 'Initial area owner sign-off' })
+        .expect(200);
+
+      // Verify one approval is APPROVED
+      const midApps = await pool.query('SELECT * FROM permit_approvals WHERE permit_id = $1', [testPermitId]);
+      expect(midApps.rows.some((r) => r.status === 'APPROVED')).toBe(true);
+
+      const currentVer = (await pool.query('SELECT version FROM permits WHERE id = $1', [testPermitId])).rows[0].version;
 
       // 2. Edit the permit while PENDING_APPROVAL
       const patchRes = await requesterAgent
@@ -310,20 +324,30 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
         });
 
       expect(patchRes.status).toBe(200);
-      expect(patchRes.body.permit.status).toBe(PermitStatus.DRAFT);
+      // Status must remain PENDING_APPROVAL per D-021
+      expect(patchRes.body.permit.status).toBe(PermitStatus.PENDING_APPROVAL);
+      expect(patchRes.body.permit.version).toBe(currentVer + 1);
 
-      // Verify approval rows were cleared
+      // 3. Verify approval rows were KEPT and reset to PENDING
       const appRes = await pool.query('SELECT * FROM permit_approvals WHERE permit_id = $1', [
         testPermitId,
       ]);
-      expect(appRes.rows.length).toBe(0);
+      expect(appRes.rows.length).toBeGreaterThan(0);
+      expect(appRes.rows.every((r) => r.status === 'PENDING' && r.decided_by === null)).toBe(true);
 
-      // Verify reset_approvals audit row
-      const auditRes = await pool.query(
+      // 4. Verify audit rows: field diff row + approvals_reset row listing who had approved
+      const fieldAuditRes = await pool.query(
         'SELECT * FROM audit_log WHERE permit_id = $1 AND action = $2',
-        [testPermitId, 'reset_approvals']
+        [testPermitId, 'update']
       );
-      expect(auditRes.rows.length).toBe(1);
+      expect(fieldAuditRes.rows.length).toBeGreaterThanOrEqual(1);
+
+      const resetAuditRes = await pool.query(
+        'SELECT * FROM audit_log WHERE permit_id = $1 AND action = $2',
+        [testPermitId, 'approvals_reset']
+      );
+      expect(resetAuditRes.rows.length).toBe(1);
+      expect(resetAuditRes.rows[0].from_value.previouslyApproved.length).toBe(1);
     });
   });
 

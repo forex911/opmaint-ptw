@@ -265,6 +265,18 @@ This log records every architectural decision, rejected alternative, and trade-o
   - Improves operational plant transparency and prevents hazardous spatial blindspots.
 - **Status**: Accepted
 
+---
+
+### D-021 Modification during PENDING_APPROVAL and In-Flight Approval Reset
+- **Context**: When a permit is in `PENDING_APPROVAL`, a requester or admin may need to modify its parameters (e.g. adjust work description, contractor team, or precautions). The question is whether to delete approvals and transition back to `DRAFT`, or retain the status and rows.
+- **Options considered**:
+  - *Option A*: Delete approvals and transition back to `DRAFT`.
+  - *Option B*: Keep status as `PENDING_APPROVAL`, retain all existing approval rows in `permit_approvals`, reset their status to `PENDING` (`decided_by = NULL`, `decided_at = NULL`, `comment = NULL`), and log one audit row per changed field plus one `approvals_reset` audit record documenting invalidated sign-offs.
+- **Decision**: Option B — Retain status `PENDING_APPROVAL` (no `PENDING_APPROVAL -> DRAFT` transition exists in the specification), retain approval rows, reset them to `PENDING`, and record field diffs plus an `approvals_reset` audit event.
+- **Consequences**: Guarantees that any parameter alteration during review immediately invalidates in-flight approvals and requires re-approval by all tiers without losing the historical structural presence of the required approval tiers. Full audit trail visibility shows exactly which fields were edited and which sign-offs were reset.
+- **Status**: Accepted
+
+
 
 
 

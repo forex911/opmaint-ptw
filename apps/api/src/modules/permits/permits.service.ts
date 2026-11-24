@@ -216,21 +216,40 @@ export class PermitsService {
         }
       }
 
-      // 8. If permit is in PENDING_APPROVAL, reset approvals back to DRAFT
+      // 8. If permit is in PENDING_APPROVAL, reset approvals back to PENDING (keep rows, do not move to DRAFT)
       let nextStatus = current.status;
       if (current.status === PermitStatus.PENDING_APPROVAL) {
-        await client.query('DELETE FROM permit_approvals WHERE permit_id = $1', [id]);
-        nextStatus = PermitStatus.DRAFT;
+        // Query existing approvals to record who had approved
+        const existingApprovalsRes = await client.query(
+          'SELECT id, required_role, required_user_id, status, decided_by FROM permit_approvals WHERE permit_id = $1',
+          [id]
+        );
+        const previouslyApproved = existingApprovalsRes.rows.filter((a) => a.status === 'APPROVED');
 
+        // Reset every approval row to PENDING
+        await client.query(
+          `UPDATE permit_approvals 
+           SET status = 'PENDING', decided_by = NULL, decided_at = NULL, comment = NULL 
+           WHERE permit_id = $1`,
+          [id]
+        );
+
+        // Write approvals_reset audit row listing who had approved per D-021
         await client.query(
           `INSERT INTO audit_log (permit_id, actor_id, action, from_value, to_value, comment)
-           VALUES ($1, $2, 'reset_approvals', $3, $4, $5)`,
+           VALUES ($1, $2, 'approvals_reset', $3, $4, $5)`,
           [
             id,
             actor.id,
-            JSON.stringify({ status: PermitStatus.PENDING_APPROVAL }),
-            JSON.stringify({ status: PermitStatus.DRAFT }),
-            'Permit parameters modified while pending approval; approvals reset and returned to draft',
+            JSON.stringify({
+              previouslyApproved: previouslyApproved.map((a) => ({
+                id: a.id,
+                requiredRole: a.required_role,
+                decidedBy: a.decided_by,
+              })),
+            }),
+            JSON.stringify({ status: 'PENDING' }),
+            'Permit parameters modified during review; all approval tiers reset to PENDING',
           ]
         );
       }
@@ -268,29 +287,53 @@ export class PermitsService {
 
       const updated = updateRes.rows[0];
 
-      // Record audit diff for the update
-      await client.query(
-        `INSERT INTO audit_log (permit_id, actor_id, action, from_value, to_value, comment)
-         VALUES ($1, $2, 'update', $3, $4, 'Permit fields updated')`,
-        [
-          id,
-          actor.id,
-          JSON.stringify({
-            contractorTeam: current.contractor_team,
-            workDescription: current.work_description,
-            plannedStart: current.planned_start,
-            plannedEnd: current.planned_end,
-            version: current.version,
-          }),
-          JSON.stringify({
-            contractorTeam: updated.contractor_team,
-            workDescription: updated.work_description,
-            plannedStart: updated.planned_start,
-            plannedEnd: updated.planned_end,
-            version: updated.version,
-          }),
-        ]
-      );
+      // Record one audit row per changed field (from/to) per D-021
+      const fieldDiffs: Array<{ field: string; from: any; to: any }> = [];
+
+      if (input.contractorTeam !== undefined && input.contractorTeam !== current.contractor_team) {
+        fieldDiffs.push({ field: 'contractorTeam', from: current.contractor_team, to: input.contractorTeam });
+      }
+      if (input.workDescription !== undefined && input.workDescription !== current.work_description) {
+        fieldDiffs.push({ field: 'workDescription', from: current.work_description, to: input.workDescription });
+      }
+      if (input.plantId !== undefined && input.plantId !== current.plant_id) {
+        fieldDiffs.push({ field: 'plantId', from: current.plant_id, to: input.plantId });
+      }
+      if (input.areaId !== undefined && input.areaId !== current.area_id) {
+        fieldDiffs.push({ field: 'areaId', from: current.area_id, to: input.areaId });
+      }
+      if (input.equipmentId !== undefined && input.equipmentId !== current.equipment_id) {
+        fieldDiffs.push({ field: 'equipmentId', from: current.equipment_id, to: input.equipmentId });
+      }
+      if (input.plannedStart !== undefined && new Date(input.plannedStart).getTime() !== new Date(current.planned_start).getTime()) {
+        fieldDiffs.push({ field: 'plannedStart', from: current.planned_start, to: nextStart.toISOString() });
+      }
+      if (input.plannedEnd !== undefined && new Date(input.plannedEnd).getTime() !== new Date(current.planned_end).getTime()) {
+        fieldDiffs.push({ field: 'plannedEnd', from: current.planned_end, to: nextEnd.toISOString() });
+      }
+      if (input.hazards !== undefined && JSON.stringify(input.hazards) !== JSON.stringify(current.hazards)) {
+        fieldDiffs.push({ field: 'hazards', from: current.hazards, to: input.hazards });
+      }
+      if (input.ppe !== undefined && JSON.stringify(input.ppe) !== JSON.stringify(current.ppe)) {
+        fieldDiffs.push({ field: 'ppe', from: current.ppe, to: input.ppe });
+      }
+      if (input.details !== undefined && JSON.stringify(input.details) !== JSON.stringify(current.details)) {
+        fieldDiffs.push({ field: 'details', from: current.details, to: input.details });
+      }
+
+      for (const diff of fieldDiffs) {
+        await client.query(
+          `INSERT INTO audit_log (permit_id, actor_id, action, from_value, to_value, comment)
+           VALUES ($1, $2, 'update', $3, $4, $5)`,
+          [
+            id,
+            actor.id,
+            JSON.stringify({ [diff.field]: diff.from }),
+            JSON.stringify({ [diff.field]: diff.to }),
+            `Field '${diff.field}' modified while in ${current.status}`,
+          ]
+        );
+      }
 
       await client.query('COMMIT');
       return mapPermitRow(updated);
