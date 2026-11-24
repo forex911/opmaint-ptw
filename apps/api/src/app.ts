@@ -7,6 +7,7 @@ import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { referenceRouter } from './modules/reference/reference.routes.js';
 import { permitsRouter } from './modules/permits/permits.routes.js';
+import { internalRouter } from './modules/internal/internal.routes.js';
 
 export function createApp(configure?: (app: Express) => void): Express {
   const app = express();
@@ -43,6 +44,7 @@ export function createApp(configure?: (app: Express) => void): Express {
   app.use('/api/auth', authRouter);
   app.use('/api/permits', permitsRouter);
   app.use('/api', referenceRouter);
+  app.use('/internal', internalRouter);
 
   // Optional custom configuration (e.g. test-only routes) before 404 handler
   if (configure) {
