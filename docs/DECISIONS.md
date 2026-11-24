@@ -1,103 +1,107 @@
 # Architecture Decision Records (ADRs) - CMMS Permit to Work (PTW)
 
-This document records the architectural and design decisions for the industrial Permit to Work (PTW) backend module. Every decision must be defensible in code review and regulatory audits.
+This log records every architectural decision, rejected alternative, and trade-off for the PTW module. Every line must be defensible in code reviews and plant safety audits.
 
 ---
 
-## ADR-001: Monorepo Structure and Workspace Manager
-
+### D-001 Monorepo Architecture and npm Workspaces Choice
+- **Context**: The PTW module requires shared domain types, enums, and a dynamic permit type registry shared between backend services (`/apps/api`), future client frontends (`/apps/web`), and CLI/sweeper tasks.
+- **Options considered**:
+  - *Option A*: Single unified monolithic directory (no workspace separation).
+  - *Option B*: pnpm workspaces with strict symlinking.
+  - *Option C*: npm workspaces (`packages/*`, `apps/*`).
+- **Decision**: Option C — Standard npm workspaces with Node 20+ and native ESM (`"type": "module"`).
+- **Consequences**: Avoids external host tool prerequisites (pnpm/yarn) on developer machines and Windows environments while providing clean package boundary separation (`@ptw/shared`, `@ptw/api`).
 - **Status**: Accepted
-- **Context**: The application requires shared type definitions, enums, and a dynamic permit type registry shared between the backend API and future frontends/clients.
-- **Decision**: Use npm workspaces with two primary directories: `packages/shared` (`@ptw/shared`) and `apps/api` (`@ptw/api`). Node 20+ with native ESM (`"type": "module"`) and strict TypeScript throughout.
-- **Justification**: npm workspaces provide native monorepo linking without external package manager dependencies (e.g., pnpm, yarn), ensuring seamless reproducibility across standard developer machines and container builds.
 
 ---
 
-## ADR-002: Dynamic Permit Type Registry and Zod Schema Generator
-
+### D-002 Password Hashing Library Selection (`bcryptjs`)
+- **Context**: User authentication requires secure, one-way password hashing. The project specification allows either argon2 or bcrypt.
+- **Options considered**:
+  - *Option A*: `argon2` via native C++ bindings (`node-gyp`).
+  - *Option B*: `bcrypt` via native C++ bindings.
+  - *Option C*: `bcryptjs` (pure JS implementation with standard bcrypt algorithm and salt rounds).
+- **Decision**: Option C — Use `bcryptjs` with 10 salt rounds.
+- **Consequences**: Guarantees deterministic, compilation-free installation on Windows workstations and minimal Docker container environments, completely eliminating MSBuild/node-gyp runtime errors while maintaining full cryptographic compatibility with bcrypt.
 - **Status**: Accepted
-- **Context**: The plant must authorize different hazard categories (Hot Work, Confined Space, Working at Height, Electrical LOTO) with disparate field sets, while remaining extensible for future types (e.g., Excavation) without database migrations or endpoint changes.
-- **Decision**: Define a declarative permit type registry in `/packages/shared` where each permit type specifies a metadata schema (`FieldDefinition[]`) and optional domain rules (`PermitTypeRule[]`). The backend dynamically compiles this registry into Zod schemas for two distinct validation modes:
-  1. `draft`: Permissive schema allowing partial input while drafting.
-  2. `submit`: Strict schema requiring all mandatory fields, range boundaries (`min`/`max`), non-empty lists, and nested reading verifications.
-- **Justification**: Satisfies the core architectural requirement that registering a new permit type requires only a config object entry, without adding tables, duplicating routes, or copying validation code.
 
 ---
 
-## ADR-003: Password Hashing Library Selection (`bcryptjs`)
-
+### D-003 Dynamic Permit Type Registry and Dynamic Zod Schema Generator
+- **Context**: Hazardous work in industrial plants spans distinct categories (Hot Work, Confined Space, Working at Height, Electrical LOTO) each with unique fields. Adding new types (e.g., Excavation) must never require new tables, new endpoints, or duplicated code.
+- **Options considered**:
+  - *Option A*: Separate database tables for each permit type (`permits_hot_work`, `permits_confined_space`).
+  - *Option B*: Hardcoded static Zod schemas with union types in API controllers.
+  - *Option C*: Core `permits` table with `details` JSONB column validated dynamically via a declarative registry (`FieldDefinition[]` and `PermitTypeConfig`).
+- **Decision**: Option C — Maintain a declarative permit type registry in `/packages/shared` and compile dynamic Zod schemas for both `draft` (permissive) and `submit` (strict) validation modes.
+- **Consequences**: Enables zero-code-change extensibility. Adding a 5th permit type (e.g., Excavation) requires only registering a config object with its fields and rules.
 - **Status**: Accepted
-- **Context**: User credentials must be hashed securely. The spec allows either argon2 or bcrypt.
-- **Decision**: Use `bcryptjs` with standard 10 salt rounds.
-- **Justification**: `bcryptjs` produces standard bcrypt hashes without requiring host C++ compilers (`node-gyp` / Visual Studio Build Tools), which frequently fail during installation in Windows execution sandboxes and cross-platform container builds.
 
 ---
 
-## ADR-004: Strict Error Response Envelope and Machine-Readable Error Codes
-
+### D-004 Confined Space Pre-Entry Gas Test 60-Minute Timing Rule
+- **Context**: Atmospheric conditions in confined spaces can degrade rapidly due to toxic gas ingress (H2S, CO) or oxygen depletion. The spec requires a gas test less than 60 minutes before planned start.
+- **Options considered**:
+  - *Option A*: Frontend-only time check during form submission.
+  - *Option B*: Server-side validation during `submit` enforcing `planned_start - tested_at <= 60 minutes` (with bounds check preventing future timestamps).
+- **Decision**: Option B — Declarative type rule in the permit type config executed on the backend during permit submission.
+- **Consequences**: Stale atmospheric tests (>60 minutes prior to planned start) are rejected with error code `ATMOSPHERE_TEST_STALE`, preventing entry based on outdated atmospheric data.
 - **Status**: Accepted
-- **Context**: Industrial CMMS systems require deterministic error handling across UI and automated integrations. The spec requires one central error middleware and consistent response shapes.
-- **Decision**: All non-2xx responses strictly adhere to:
-  ```json
-  {
-    "error": {
-      "code": "STRING_ERROR_CODE",
-      "message": "Human readable explanation",
-      "details": {}
-    }
-  }
-  ```
-  Standard error codes:
-  - `401`: `UNAUTHENTICATED`
-  - `403`: `FORBIDDEN` (with specific sub-codes: `FORBIDDEN_SELF_APPROVAL`, `FORBIDDEN_AREA_MISMATCH`, `FORBIDDEN_ROLE_MISMATCH`, `FORBIDDEN_NOT_OWNER`)
-  - `404`: `NOT_FOUND`
-  - `409`: `ILLEGAL_TRANSITION` (details include `from`, `action`, `allowedActions`)
-  - `422`: `VALIDATION_ERROR` (details include field paths and issues)
-- **Justification**: Prevents ad-hoc error structures and guarantees that guards and transitions communicate explicit failure reasons to clients.
 
 ---
 
-## ADR-005: State Machine Enforcement via Single Database Transaction
-
+### D-005 Strict Error Response Envelope and Machine-Readable Error Codes
+- **Context**: Client applications and automated audit monitors require deterministic error formats rather than varying Express error shapes.
+- **Options considered**:
+  - *Option A*: Standard Express default HTML/string error responses.
+  - *Option B*: Unified JSON error envelope: `{ error: { code, message, details } }`.
+- **Decision**: Option B — All non-2xx API responses return `{ error: { code, message, details } }`. Specific codes: `UNAUTHENTICATED` (401), `FORBIDDEN` (403 with specific sub-codes), `NOT_FOUND` (404), `ILLEGAL_TRANSITION` (409 with `from`, `action`, `allowedActions`), `VALIDATION_ERROR` (422 with field paths).
+- **Consequences**: Centralized error middleware ensures no raw database or system stack traces leak to users while giving clients structured error codes for UI mapping.
 - **Status**: Accepted
-- **Context**: Real-world PTW failure modes involve unrecorded authorizations, self-approvals, or conflicting state updates under concurrent requests.
-- **Decision**: All state changes must pass through a single declarative entrypoint `transition(permitId, action, actor, payload)`. It acquires a row-level lock via `SELECT ... FOR UPDATE`, runs lazy expiry, evaluates pure guard functions, updates status, and inserts an audit log entry within the same database transaction. Direct writes to permit status are prohibited.
-- **Justification**: Eliminates race conditions such as duplicate approvals or concurrent activation after permit expiry.
 
 ---
 
-## ADR-006: Immutable Append-Only Audit Log via Database Triggers
-
+### D-006 State Machine Concurrency Control and Single-Point Entry (`SELECT ... FOR UPDATE`)
+- **Context**: Industrial permits involve life-critical transitions. Race conditions (e.g. concurrent approvals or activation after cancellation) could result in unauthorized work.
+- **Options considered**:
+  - *Option A*: Ad-hoc update queries in individual route handlers.
+  - *Option B*: Single declarative transition table and centralized `transition(permitId, action, actor, payload)` function running inside a database transaction with `SELECT ... FOR UPDATE`.
+- **Decision**: Option B — All lifecycle actions must pass through `transition()`, acquiring a row-level lock on the permit row before evaluating guards and persisting state.
+- **Consequences**: Eliminates concurrency anomalies, guarantees atomic audit logging, and enforces that endpoints cannot write status directly.
 - **Status**: Accepted
-- **Context**: In safety investigations, the plant must have tamper-proof records of who authorized what. Application-level checks alone are insufficient if direct DB access occurs.
-- **Decision**: Enforce append-only semantics on the `audit_log` table via a PostgreSQL database trigger (`BEFORE UPDATE OR DELETE ON audit_log RAISE EXCEPTION`).
-- **Justification**: Guarantees audit trail immutability at the database engine level, preventing accidental or malicious modification of historical safety records.
 
 ---
 
-## ADR-007: Dual Expiry Mechanism (Lazy Expiry + Sweeper Webhook)
-
+### D-007 Append-Only Immutable Audit Log via Database Triggers
+- **Context**: In safety investigations, regulatory bodies demand proof of who authorized what. Application-level checks alone can be bypassed via direct database access.
+- **Options considered**:
+  - *Option A*: Application ORM-level insert-only conventions.
+  - *Option B*: PostgreSQL database trigger `BEFORE UPDATE OR DELETE ON audit_log RAISE EXCEPTION`.
+- **Decision**: Option B — Database-level trigger on the `audit_log` table forbidding UPDATE and DELETE operations.
+- **Consequences**: The audit log is tamper-proof at the database engine level.
 - **Status**: Accepted
-- **Context**: Permits must expire automatically when `now > planned_end`. Free or serverless hosting environments may sleep background cron threads.
-- **Decision**: Implement a two-tier expiry strategy:
-  1. *Lazy Expiry*: Every read and state transition inspects `planned_end`. If overdue, it transitions the permit to `EXPIRED` with `actor = SYSTEM` and writes an audit row.
-  2. *Active Sweeper*: An in-process `node-cron` runs every minute, supplemented by a protected webhook `POST /internal/sweep` requiring header `X-Sweep-Secret` for external monitoring cron services.
-- **Justification**: Guarantees that no expired permit can ever be activated or closed even if the cron sweeper is paused or lagging.
 
 ---
 
-## ADR-008: Permit Human-Readable Identification Format
-
+### D-008 Dual-Tier Expiry Strategy (Lazy Expiry + Sweeper Webhook)
+- **Context**: Permits must transition to `EXPIRED` once `now > planned_end`. Cloud instances may sleep background timers.
+- **Options considered**:
+  - *Option A*: Background cron job only.
+  - *Option B*: Real-time database scheduler.
+  - *Option C*: Dual-tier approach: (1) Lazy expiry on every read and state transition, and (2) Active sweeper via `node-cron` backed by a protected external webhook `POST /internal/sweep` with `X-Sweep-Secret`.
+- **Decision**: Option C — Two-tier lazy expiry plus dual-channel active sweeper.
+- **Consequences**: An expired permit can never be interacted with even if background workers sleep, while scheduled sweeps keep dashboards accurate.
 - **Status**: Accepted
-- **Context**: Industrial operators reference permits by readable tags on physical boards and radios rather than raw UUIDs.
-- **Decision**: Use `PTW-YYYY-NNNN` (e.g., `PTW-2026-0001`), where `YYYY` is the current calendar year and `NNNN` is a zero-padded sequential counter.
-- **Justification**: Complies with standard plant safety tagging practices and provides unambiguous verbal communication during hazardous work coordination.
 
 ---
 
-## ADR-009: Gas Test Timing Rules for Confined Space Entry
-
+### D-009 Human-Readable Permit Identification Format (`PTW-YYYY-NNNN`)
+- **Context**: Plant technicians and safety officers reference permits on radios and physical permit boards by short, sequential identifiers.
+- **Options considered**:
+  - *Option A*: Raw UUIDs (e.g. `c7a3b4...`).
+  - *Option B*: Timestamp string (e.g. `20261124115500`).
+  - *Option C*: Formatted sequential tag `PTW-YYYY-NNNN` (e.g. `PTW-2026-0001`).
+- **Decision**: Option C — Year-prefixed sequential human-readable tag.
+- **Consequences**: Verbal communication is clear during shift handovers and emergency isolations.
 - **Status**: Accepted
-- **Context**: Confined spaces accumulate dangerous gases (H2S, CO, methane) or deplete oxygen rapidly.
-- **Decision**: For `CONFINED_SPACE` permits, enforce a domain rule at submission: `atmosphere_test.tested_at` must be recorded within 60 minutes prior to `planned_start`. Tests older than 60 minutes fail submission validation with error code `ATMOSPHERE_TEST_STALE`.
-- **Justification**: Prevents entering confined spaces based on historical atmospheric data that no longer reflects real-time conditions.
