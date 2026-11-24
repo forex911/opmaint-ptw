@@ -155,4 +155,12 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     const statusesRes = await pool.query('SELECT DISTINCT status FROM permits');
     expect(statusesRes.rows.length).toBe(10);
   });
+
+  it('advances ptw_permit_no_seq past seeded permits so generating a new permit yields a unique number', async () => {
+    await seedDatabase();
+    const nextPermitNo = await getNextPermitNumber(pool);
+    expect(nextPermitNo).toBe(`PTW-${new Date().getFullYear()}-0012`);
+    const existing = await pool.query('SELECT id FROM permits WHERE permit_no = $1', [nextPermitNo]);
+    expect(existing.rows.length).toBe(0);
+  });
 });
