@@ -26,3 +26,9 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Severity**: Low / Standard stateless JWT behavior.
 - **Mitigation & Future Scope**: The JWT carries only user ID and `requireAuth` queries the active database user on every request, ensuring deleted/deactivated users are immediately rejected. A token denylist (e.g. in Redis) or rotating refresh tokens can be introduced if instant revocation is required.
 
+### 5. Sandboxed Offline Environment & In-Tree Security Middleware
+- **Description**: In the current execution sandbox, outbound TCP connections to `registry.npmjs.org` are blocked (`ECONNRESET`). Consequently, new runtime dependencies cannot be downloaded via `npm install`.
+- **Severity**: None / Architectural design choice.
+- **Resolution**: Implemented zero-dependency in-tree middleware for OWASP security headers (`apps/api/src/middleware/helmet.ts`) and IP-based sliding window rate limiting (`apps/api/src/middleware/rate-limit.ts`) per Decision `D-017`.
+
+
