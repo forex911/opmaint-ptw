@@ -4,6 +4,7 @@ import type { Permit } from '../../../db/schema/permits.js';
 import type { PermitApproval } from '../../../db/schema/approvals.js';
 import { UserRole, PermitStatus, getPermitTypeConfig } from '@ptw/shared';
 import { AppError } from '../../../errors/app-error.js';
+import { createGuardAppError } from '../../../errors/guard-codes.js';
 import type {
   PermitAction,
   TransitionActor,
@@ -208,7 +209,7 @@ export async function transition(
       if (!guardResult.ok) {
         await client.query('ROLLBACK');
         const allowedActions = getAllowedActions(permit, actor, approvals, now);
-        throw new AppError(409, guardResult.code, guardResult.message, {
+        throw createGuardAppError(guardResult.code, guardResult.message, {
           from: permit.status,
           action,
           allowedActions,

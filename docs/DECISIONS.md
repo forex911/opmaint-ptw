@@ -251,6 +251,21 @@ This log records every architectural decision, rejected alternative, and trade-o
 - **Consequences**: Even if an actor possesses multiple administrative or safety roles, once they have approved one tier on a permit, state machine guards block them from approving any other row on that same permit. Hazardous work always requires at least two distinct human reviews.
 - **Status**: Accepted
 
+---
+
+### D-020 Read Visibility Model (Universal Read for Authenticated Users)
+- **Context**: In plant safety management, situational awareness across departments is critical. Requesters, contractors, area operators, and safety supervisors need to see active and planned hazardous work in nearby areas to prevent conflicting jobs (e.g. hot work near flammable gas transfers).
+- **Options considered**:
+  - *Option A*: Strict tenant/department silo where users can only read permits they authored or are assigned to approve.
+  - *Option B*: Universal read access for all authenticated plant personnel across all plants, areas, and equipment, while strictly guarding all mutating operations (`submit`, `approve`, `reject`, `activate`, `suspend`, `resume`, `close`, `verify`, `cancel`, `work-logs`, `extensions`) via server-side role and ownership checks.
+- **Decision**: Option B — Universal read visibility for authenticated users.
+- **Consequences**:
+  - Any authenticated user (`requireAuth`) can list and read permits, view statistics dashboards, and inspect audit event timelines.
+  - No user can mutate a permit or perform lifecycle transitions without satisfying strict role barriers, ownership checks, and pure transition guards.
+  - Improves operational plant transparency and prevents hazardous spatial blindspots.
+- **Status**: Accepted
+
+
 
 
 
