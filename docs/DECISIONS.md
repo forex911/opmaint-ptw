@@ -40,7 +40,7 @@ This log records every architectural decision, rejected alternative, and trade-o
 
 ---
 
-### D-004 Confined Space Pre-Entry Gas Test 60-Minute Timing Rule
+### D-004 Confined Space Pre-Entry Gas Test 60-Minute Timing Rule at Submission
 - **Context**: Atmospheric conditions in confined spaces can degrade rapidly due to toxic gas ingress (H2S, CO) or oxygen depletion. The spec requires a gas test less than 60 minutes before planned start.
 - **Options considered**:
   - *Option A*: Frontend-only time check during form submission.
@@ -104,4 +104,15 @@ This log records every architectural decision, rejected alternative, and trade-o
   - *Option C*: Formatted sequential tag `PTW-YYYY-NNNN` (e.g. `PTW-2026-0001`).
 - **Decision**: Option C — Year-prefixed sequential human-readable tag.
 - **Consequences**: Verbal communication is clear during shift handovers and emergency isolations.
+- **Status**: Accepted
+
+---
+
+### D-010 Confined Space Atmosphere Re-Verification at Activation
+- **Context**: In real-world plant operations, a Confined Space permit may be submitted and approved hours before actual job execution begins. Atmospheric conditions inside a vessel or tank can deteriorate while waiting for activation.
+- **Options considered**:
+  - *Option A*: Validate atmospheric test only at permit submission.
+  - *Option B*: Enforce that during `activate`, if the permit type is `CONFINED_SPACE`, the atmosphere test timestamp must be fresh (`now - tested_at <= 60 minutes`). If more than 60 minutes have elapsed between testing and activation, activation is blocked until fresh readings are recorded.
+- **Decision**: Option B — Server-side guard on the `activate` transition verifies that `CONFINED_SPACE` permits have an atmosphere test recorded within 60 minutes prior to activation time.
+- **Consequences**: Workers are strictly protected from entering a confined space based on stale atmosphere measurements, adhering to OSHA 1910.146 and UK HSE confined space entry standards.
 - **Status**: Accepted
