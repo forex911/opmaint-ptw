@@ -2,12 +2,16 @@
   "name": "ptw-cmms",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "description": "Industrial Permit to Work (PTW) backend module for CMMS",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
   "scripts": {
+    "prepare": "node scripts/install-hooks.js",
+    "typecheck": "npm run --workspaces --if-present typecheck",
+    "lint": "npm run --workspaces --if-present lint",
     "build": "npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "db:migrate": "npm run --workspace=@ptw/api db:migrate",
