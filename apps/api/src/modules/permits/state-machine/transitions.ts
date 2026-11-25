@@ -26,7 +26,7 @@ export const TRANSITION_TABLE: readonly TransitionRule[] = [
     action: 'submit',
     from: [PermitStatus.DRAFT],
     to: PermitStatus.PENDING_APPROVAL,
-    allowedRoles: [UserRole.REQUESTER, UserRole.ADMIN],
+    allowedRoles: [UserRole.REQUESTER, UserRole.SAFETY_OFFICER, UserRole.ADMIN],
     guards: [guardRequesterOwnership, guardWindowDates, guardSubmitDetails],
   },
   {

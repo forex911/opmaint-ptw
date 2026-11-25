@@ -26,10 +26,10 @@ permitsRouter.get(
   (req, res, next) => permitsController.list(req, res, next)
 );
 
-// 3. Create permit (REQUESTER, ADMIN only)
+// 3. Create permit (REQUESTER, SAFETY_OFFICER, ADMIN)
 permitsRouter.post(
   '/',
-  requireRole(UserRole.REQUESTER, UserRole.ADMIN),
+  requireRole(UserRole.REQUESTER, UserRole.SAFETY_OFFICER, UserRole.ADMIN),
   validate({ body: createPermitSchema }),
   (req, res, next) => permitsController.create(req, res, next)
 );

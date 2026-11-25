@@ -69,7 +69,15 @@ export const createWorkLogSchema = z.object({
   note: z.string().min(1, { message: 'Work log note cannot be empty' }),
 });
 
-export const transitionActionSchema = z.object({
-  comment: z.string().optional(),
-  completion_notes: z.string().optional(),
-});
+export const transitionActionSchema = z
+  .object({
+    comment: z.string().optional(),
+    completionNotes: z.string().optional(),
+    completion_notes: z.string().optional(),
+    signatureData: z.string().optional(),
+  })
+  .transform((val) => ({
+    comment: val.comment,
+    completionNotes: val.completionNotes ?? val.completion_notes,
+    signatureData: val.signatureData,
+  }));

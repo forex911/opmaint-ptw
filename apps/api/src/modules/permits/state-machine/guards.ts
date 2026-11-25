@@ -6,7 +6,7 @@ export const guardNoSelfAction = (ctx: TransitionContext): GuardResult => {
   if (ctx.actor.id && ctx.permit.requesterId === ctx.actor.id) {
     return {
       ok: false,
-      code: 'FORBIDDEN_SELF_APPROVAL',
+      code: 'SELF_APPROVAL_FORBIDDEN',
       message: 'Requesters cannot approve, reject, or verify their own permits',
     };
   }
@@ -17,7 +17,7 @@ export const guardRequesterOwnership = (ctx: TransitionContext): GuardResult => 
   if (ctx.actor.role === UserRole.REQUESTER && ctx.actor.id !== ctx.permit.requesterId) {
     return {
       ok: false,
-      code: 'FORBIDDEN_NOT_OWNER',
+      code: 'NOT_PERMIT_OWNER',
       message: 'Only the permit requester or an authorized administrator can perform this action',
     };
   }
@@ -35,7 +35,7 @@ export const guardAreaOwnerAssignment = (ctx: TransitionContext): GuardResult =>
     if (!matchingRow) {
       return {
         ok: false,
-        code: 'FORBIDDEN_AREA_MISMATCH',
+        code: 'WRONG_AREA',
         message: 'Area Owner is not designated for this permit area or approval is not pending',
       };
     }
@@ -67,7 +67,7 @@ export const guardPendingApprovalRowExists = (ctx: TransitionContext): GuardResu
   if (!matchingPending) {
     return {
       ok: false,
-      code: 'FORBIDDEN_ROLE_MISMATCH',
+      code: 'ROLE_NOT_ALLOWED',
       message: `No pending approval row requires role '${ctx.actor.role}' for user '${ctx.actor.id}'`,
     };
   }
@@ -86,7 +86,7 @@ export const guardSeparationOfDuties = (ctx: TransitionContext): GuardResult => 
   if (alreadyApprovedOther) {
     return {
       ok: false,
-      code: 'FORBIDDEN_SEPARATION_OF_DUTIES',
+      code: 'DUTIES_SEPARATION_VIOLATION',
       message:
         'Separation of duties violation: user has already authorized another approval tier on this permit',
     };
@@ -109,7 +109,7 @@ export const guardMandatoryComment = (ctx: TransitionContext): GuardResult => {
 
 export const guardMandatoryCompletionNotes = (ctx: TransitionContext): GuardResult => {
   const notes =
-    ((ctx.payload?.completion_notes || ctx.payload?.comment) as string)?.trim();
+    ((ctx.payload?.completionNotes || ctx.payload?.completion_notes || ctx.payload?.comment) as string)?.trim();
   if (!notes) {
     return {
       ok: false,

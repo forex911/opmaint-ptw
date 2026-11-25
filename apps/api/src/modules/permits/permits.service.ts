@@ -153,7 +153,7 @@ export class PermitsService {
 
       // 2. Ownership check: requester or admin
       if (current.requester_id !== actor.id && actor.role !== UserRole.ADMIN) {
-        throw new AppError(403, 'FORBIDDEN', 'Only the permit owner or an administrator can edit this permit');
+        throw new AppError(403, 'NOT_PERMIT_OWNER', 'Only the permit owner or an administrator can edit this permit');
       }
 
       // 3. Status barrier: only DRAFT or PENDING_APPROVAL

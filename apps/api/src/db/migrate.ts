@@ -27,7 +27,15 @@ export async function runMigrations(customPool?: pkg.Pool): Promise<void> {
       );
     `);
 
-    const migrationsDir = path.join(__dirname, 'migrations');
+    let migrationsDir = path.join(__dirname, 'migrations');
+    if (!fs.existsSync(migrationsDir)) {
+      // Fallback for compiled dist/ location: check src/db/migrations
+      const srcFallback = path.resolve(__dirname, '../../src/db/migrations');
+      if (fs.existsSync(srcFallback)) {
+        migrationsDir = srcFallback;
+      }
+    }
+
     if (!fs.existsSync(migrationsDir)) {
       console.log('No migrations directory found.');
       return;

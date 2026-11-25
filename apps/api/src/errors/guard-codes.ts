@@ -5,16 +5,20 @@ import { AppError } from './app-error.js';
  * Ensures consistent error shapes across transition engine and API routes.
  */
 export const GUARD_STATUS_MAP: Record<string, number> = {
-  // 403 Forbidden: Identity / Authorization barriers
+  // 403 Forbidden: Identity / Authorization / Ownership barriers
+  SELF_APPROVAL_FORBIDDEN: 403,
+  WRONG_AREA: 403,
+  ROLE_NOT_ALLOWED: 403,
+  NOT_PERMIT_OWNER: 403,
+  DUTIES_SEPARATION_VIOLATION: 403,
   FORBIDDEN_SELF_APPROVAL: 403,
-  FORBIDDEN_NOT_OWNER: 403,
   FORBIDDEN_AREA_MISMATCH: 403,
   FORBIDDEN_ROLE_MISMATCH: 403,
+  FORBIDDEN_NOT_OWNER: 403,
 
   // 409 Conflict: Lifecycle, State Machine, Temporal barriers
   ILLEGAL_TRANSITION: 409,
   NO_PENDING_APPROVAL: 409,
-  DUTIES_SEPARATION_VIOLATION: 409,
   EARLY_ACTIVATION: 409,
   STALE_GAS_TEST: 409,
   PENDING_APPROVALS: 409,

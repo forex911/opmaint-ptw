@@ -20,7 +20,9 @@ export interface TransitionOptions {
 
 export interface TransitionPayload {
   comment?: string;
+  completionNotes?: string;
   completion_notes?: string;
+  signatureData?: string;
   signature_data?: string;
   [key: string]: unknown;
 }
@@ -193,23 +195,42 @@ export async function transition(
     }
 
     // 4. Match transition rule in declarative transition table
-    const matchedRule: TransitionRule | undefined = TRANSITION_TABLE.find(
+    const rulesForActionFromStatus = TRANSITION_TABLE.filter(
       (rule) =>
         rule.action === action &&
-        rule.from.includes(permit.status as PermitStatus) &&
-        (rule.allowedRoles as string[]).includes(actor.role)
+        rule.from.includes(permit.status as PermitStatus)
+    );
+
+    if (rulesForActionFromStatus.length === 0) {
+      await rollback();
+      const allowedActions = getAllowedActions(permit, actor, approvals, now);
+      throw new AppError(
+        409,
+        'ILLEGAL_TRANSITION',
+        `Action '${action}' is not permitted from status '${permit.status}'`,
+        {
+          from: permit.status,
+          action,
+          allowedActions,
+        }
+      );
+    }
+
+    const matchedRule: TransitionRule | undefined = rulesForActionFromStatus.find(
+      (rule) => (rule.allowedRoles as string[]).includes(actor.role)
     );
 
     if (!matchedRule) {
       await rollback();
       const allowedActions = getAllowedActions(permit, actor, approvals, now);
       throw new AppError(
-        409,
-        'ILLEGAL_TRANSITION',
-        `Action '${action}' is not permitted from status '${permit.status}' for role '${actor.role}'`,
+        403,
+        'ROLE_NOT_ALLOWED',
+        `Role '${actor.role}' is not authorized to perform action '${action}' on permits in status '${permit.status}'`,
         {
           from: permit.status,
           action,
+          role: actor.role,
           allowedActions,
         }
       );
@@ -363,7 +384,7 @@ export async function transition(
       // Rejection immediately transitions permit to terminal REJECTED status
       nextStatus = PermitStatus.REJECTED;
     } else if (action === 'close') {
-      const notes = (payload.completion_notes || payload.comment) as string;
+      const notes = (payload.completionNotes || payload.completion_notes || payload.comment) as string;
       await client.query(
         `UPDATE permits
          SET completion_notes = $1, closed_at = $2
