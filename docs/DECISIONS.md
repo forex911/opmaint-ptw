@@ -325,6 +325,38 @@ This log records every architectural decision, rejected alternative, and trade-o
   - Technical diagnostic information is restricted to non-production environments to avoid exposing system details.
 - **Status**: Accepted
 
+---
+
+### D-025 Equipment Assignment: Optional for Draft, Mandatory on Submission
+- **Context**: Industrial Permit to Work forms need flexibility during initial drafting (e.g. scoping work in an area before specific tag numbers are confirmed). However, once formal authorization is requested, safety regulations require specific equipment to be identified for physical isolation (LOTO, hot work boundary, confined space vessel ID).
+- **Options considered**:
+  - *Option A*: Require equipment at draft creation. (Rejected: Prevents drafting work in advance or for general area tasks).
+  - *Option B*: Keep equipment optional everywhere including submission. (Rejected: Fails regulatory requirements for specific equipment isolation).
+  - *Option C*: Allow equipment to be optional and nullable during `DRAFT`, but enforce equipment presence and area consistency upon `submit` transition.
+- **Decision**: Option C — Permit creation and draft updates allow `equipmentId: null`. The `submit` lifecycle transition enforces `guardSubmitEquipment`, rejecting submission with HTTP 422 `VALIDATION_ERROR` (`"Select equipment from the chosen area"`) if `equipmentId` is missing or mismatched.
+- **Consequences**:
+  - Requesters can save incomplete drafts without equipment.
+  - Permits cannot transition to `PENDING_APPROVAL` without a specific equipment assignment.
+  - Location hierarchy validation ensures assigned equipment belongs strictly to the permit's designated plant area.
+- **Status**: Accepted
+
+---
+
+### D-026 Database Migrations Execution Decoupled from Application Server Startup
+- **Context**: Automated execution of database migrations (`runMigrations()`) inside `startServer()` creates two major architectural risks in production:
+  1. The runtime application should run with least privilege using a restricted role (`ptw_app_user`), which lacks DDL permissions (`CREATE TABLE`, `ALTER TABLE`, `DROP CONSTRAINT`). Providing DDL credentials to runtime app instances violates security isolation.
+  2. In horizontally scaled or serverless deployments, concurrent container startups create race conditions during schema alteration unless complex distributed advisory locking (`pg_advisory_lock`) is implemented.
+- **Options considered**:
+  - *Option A (Chosen for Production)*: Remove `runMigrations()` from `server.ts` runtime startup. Execute migrations as an explicit pre-deployment command (`npm run db:migrate` with `ADMIN_DATABASE_URL`), such as Render `preDeployCommand`, Docker release phase, or CI/CD deploy pipeline.
+  - *Option B*: Retain `runMigrations()` in `server.ts` using `ADMIN_DATABASE_URL` and `pg_advisory_lock(hash('ptw_migrations'))`. (Rejected: Forces runtime API containers to possess administrative DDL credentials).
+- **Decision**: Option A — Decouple migration execution from runtime server startup. In production and local development, migrations are run explicitly via `npm run db:migrate` using administrative database credentials.
+- **Consequences**:
+  - The runtime API server runs securely under least privilege without needing administrative DDL capabilities.
+  - Container startups are fast and deterministic, eliminating advisory lock timeouts and startup race conditions across multi-instance clusters.
+  - Documented explicitly in `README.md` and automated deployment scripts.
+- **Status**: Accepted
+
+
 
 
 

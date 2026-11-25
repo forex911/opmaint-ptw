@@ -537,3 +537,31 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run lint` -> 0 errors across all workspaces.
   - `npm run build` -> Clean production build across all workspaces.
   - `npm test` -> 262/262 tests passing (6 shared + 224 api + 32 web) across 20 test files with 0 failures.
+
+---
+
+## [2026-11-25 19:30] fix/equipment-and-migrations / Equipment Submit Guard & Decoupled Migrations
+- **Goal**:
+  1. Enforce that equipment is strictly required upon permit submission (`action: 'submit'`) while remaining optional on drafts, returning 422 `"Select equipment from the chosen area"` if missing or outside the chosen area.
+  2. Decouple database migrations from runtime API server startup in `server.ts`, establishing explicit pre-deploy migration execution per production security best practices.
+  3. Record architectural decisions D-025 and D-026 in `docs/DECISIONS.md`.
+- **Done**:
+  - Added `guardSubmitEquipment` (and alias `guardSubmit`) in `apps/api/src/modules/permits/state-machine/guards.ts`.
+  - Added `guardSubmitEquipment` to `submit` transition rule in `apps/api/src/modules/permits/state-machine/transitions.ts`.
+  - Updated Drizzle permits schema in `apps/api/src/db/schema/permits.ts` to reflect nullable `equipmentId`.
+  - Added regression and contract tests in `apps/api/src/modules/permits/equipment-cascade.test.ts`:
+    - Draft without equipment OK (`201 Created`, `equipmentId: null`, `status: 'DRAFT'`).
+    - Submit without equipment returns 422 `VALIDATION_ERROR` with `"Select equipment from the chosen area"`.
+    - Equipment outside the area returns 422 with `"Select equipment from the chosen area"`.
+    - Submit with valid equipment transitions to `PENDING_APPROVAL`.
+  - Removed `runMigrations()` from `apps/api/src/server.ts` and `apps/api/src/index.ts`.
+  - Documented explicit pre-deploy migration step (`Render preDeployCommand: npm run db:migrate`) in `README.md`.
+  - Documented D-025 and D-026 in `docs/DECISIONS.md`.
+- **Commits**:
+  - `52903fb fix(permits): require equipment on submit and validate area assignment (Decision: D-025)`
+  - `352540e fix(api): decouple database migrations from runtime server startup (Decision: D-026)`
+- **Verification**:
+  - `npm run typecheck` -> 0 errors.
+  - `npm run lint` -> 0 errors.
+  - `npm test` -> 264/264 passing (6 shared + 226 api + 32 web) across 20 test files with 0 failures.
+  - `npm run build` -> Clean build across all workspaces.
