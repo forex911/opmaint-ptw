@@ -130,7 +130,7 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
     // Pair 2: PENDING_APPROVAL -> close directly
     const closeRes = await requesterAgent
       .post(`/api/permits/${draftId}/close`)
-      .send({ completion_notes: 'Premature close' })
+      .send({ completionNotes: 'Premature close' })
       .expect(409);
     expect(closeRes.body.error.code).toBe('ILLEGAL_TRANSITION');
     expect(closeRes.body.error.details.allowedActions).not.toContain('close');
@@ -203,10 +203,10 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
       .send({ comment: 'Attempting self-approval as admin' })
       .expect(403);
 
-    expect(approveRes.body.error.code).toBe('FORBIDDEN_SELF_APPROVAL');
+    expect(approveRes.body.error.code).toBe('SELF_APPROVAL_FORBIDDEN');
     expect(approveRes.body.error.message).toMatch(/Requesters cannot approve/i);
 
-    // Requester also cannot approve their own permit (nor do they have approver role)
+    // Requester also cannot approve their own permit (role REQUESTER cannot approve)
     const reqPermitRes = await requesterAgent
       .post('/api/permits')
       .send(createHotWorkPayload())
@@ -217,8 +217,8 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
     const reqApproveRes = await requesterAgent
       .post(`/api/permits/${reqPermitId}/approve`)
       .send({ comment: 'Requester approving own permit' });
-    // Either 403 or 409 because role REQUESTER cannot approve
-    expect([403, 409]).toContain(reqApproveRes.status);
+    expect(reqApproveRes.status).toBe(403);
+    expect(reqApproveRes.body.error.code).toBe('ROLE_NOT_ALLOWED');
   });
 
   // 3. Area owner cannot approve permit in another area (403 FORBIDDEN_AREA_MISMATCH)
@@ -247,7 +247,7 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
       .send({ comment: 'Area owner signing for unassigned area' })
       .expect(403);
 
-    expect(res.body.error.code).toBe('FORBIDDEN_AREA_MISMATCH');
+    expect(res.body.error.code).toBe('WRONG_AREA');
     expect(res.body.error.message).toMatch(/Area Owner is not designated for this permit area/i);
   });
 
@@ -318,7 +318,7 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
     // 3. Cannot close
     const closeRes = await requesterAgent
       .post(`/api/permits/${expPermitId}/close`)
-      .send({ completion_notes: 'Trying to close expired' })
+      .send({ completionNotes: 'Trying to close expired' })
       .expect(409);
     expect(closeRes.body.error.code).toBe('ILLEGAL_TRANSITION');
     expect(closeRes.body.error.details.allowedActions).toEqual([]);
@@ -390,7 +390,7 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
     // Close without completion notes -> 422 MISSING_COMPLETION_NOTES
     const closeRes = await requesterAgent
       .post(`/api/permits/${activeId}/close`)
-      .send({ completion_notes: '   ' })
+      .send({ completionNotes: '   ' })
       .expect(422);
     expect(closeRes.body.error.code).toBe('MISSING_COMPLETION_NOTES');
     expect(closeRes.body.error.message).toMatch(/Completion notes are strictly mandatory/i);
@@ -435,7 +435,7 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
     // 7. Close -> transitions to CLOSED_PENDING_VERIFICATION
     await requesterAgent
       .post(`/api/permits/${permitId}/close`)
-      .send({ completion_notes: 'Welding completed, cold work inspected, 30min fire watch completed' })
+      .send({ completionNotes: 'Welding completed, cold work inspected, 30min fire watch completed' })
       .expect(200);
 
     // 8. Verify (Safety Officer) -> transitions to CLOSED_VERIFIED
