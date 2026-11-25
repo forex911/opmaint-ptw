@@ -409,3 +409,79 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run build` -> Production bundles compiled cleanly across all workspaces (Vite bundle: 339 kB JS, 31 kB CSS).
   - `npm test` -> 205/205 tests passing (6 shared + 189 api + 10 web) across 12 test suites.
 - **Next**: Review frontend delivery report and await user feedback.
+
+---
+
+## 2026-11-25 - Stage 8: Frontend-Backend Integration and QA
+
+- **Goal**: Perform comprehensive full-stack integration audit of frontend, backend, and shared packages; verify and resolve contract mismatches; test all end-to-end user workflows (A through F) and all four permit types against real PostgreSQL database; add automated integration test suites across monorepo.
+- **Contract Audit & Resolutions**:
+  - Documented complete findings in `docs/STAGE_08_INTEGRATION_AUDIT.md`.
+  - **Permit List Envelope Normalization**: Backend returns `{ items: Permit[], pagination: { total, page, limit, totalPages } }`. Normalized in `apps/web/src/api/client.ts` to populate `permits`, `total`, `page`, `limit`, `pages`, restoring permit lists across dashboard strips and permits list table.
+  - **Dashboard Stats Normalization**: Computed `total = sum(byStatus)` and provided aliases `activeRightNow: raw.activeNow`, `expiringIn2Hours: raw.expiringIn2h`.
+  - **Audit Timeline Retrieval & Display**: Added dedicated `api.getAuditTimeline(id)` calling `GET /api/permits/:id/audit`, rendered `actorName`, `fromValue`, and `toValue` in `PermitDetailPage.tsx`.
+  - **Work Logs Payload & Category Alignment**: Aligned client payload to send `{ kind: 'NOTE' | 'ENTRY' | 'EXIT', note: string }` matching DB check constraint, updated category selector, and rendered `log.kind`, `log.loggedByName`, and `log.note`.
+  - **Closure Verification Action & Route**: Added `verify` action to `PermitAction` in `@ptw/shared` and aligned client route to `POST /api/permits/:id/verify`.
+  - **Close Permit Completion Notes**: Normalized `completionNotes` to `completion_notes` in `api.closePermit()`.
+  - **Draft Editing Affordance**: Added "Edit Draft" button and version-locked modal in `PermitDetailPage.tsx` for `DRAFT` and `PENDING_APPROVAL` permits.
+  - **Security Hardening**: Guarded reviewer demo account quick-fill buttons in `LoginPage.tsx` with `import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS === 'true'`. Created `apps/web/src/vite-env.d.ts`.
+- **Automated Integration Tests Added**:
+  - `apps/api/src/modules/permits/integration-workflows.test.ts`: 25 comprehensive Supertest integration tests against PostgreSQL:
+    - Workflow A: Requester Journey (Draft, Edit via PATCH, Submit, Audit timeline verification).
+    - Workflow B: Area Owner Approval (Query `pendingMyApproval`, Review allowed actions, Approve with comment, Verify partial approval state).
+    - Workflow C: Safety Officer Approval & Activation (Query pending queue, Approve to reach `APPROVED` status, Activate to `ACTIVE`).
+    - Workflow D: Full Lifecycle (Operational work logs on `ACTIVE`, Suspend with comment, Resume, Close with mandatory completion notes, Verify closure sign-off into terminal `CLOSED_VERIFIED` status).
+    - Workflow E: Rejection Workflow (Create, Submit, Reject with mandatory comment, Verify requester sees rejected status and comment).
+    - Workflow F: Authorization & Role Barriers (Four-Eyes self-approval barrier, Unauthenticated 401, Role-restricted transition barriers with 409, Direct creation role barrier with 403).
+    - All 4 Permit Types: Validated dynamic creation, submission, and data persistence for `HOT_WORK`, `CONFINED_SPACE` (including gas test freshness window rule), `WORKING_AT_HEIGHT`, and `ELECTRICAL_LOTO`.
+  - `apps/web/src/api/client.test.ts`: 6 client normalization and contract tests.
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across all 3 workspaces (`@ptw/shared`, `@ptw/api`, `@ptw/web`).
+  - `npm run build` -> Clean production build across all workspaces.
+  - `npm test` -> 236/236 tests passing (6 shared + 214 api + 16 web) across 14 test files with 0 failures and 0 skipped.
+- **Branch & Commit**:
+  - Committed on `stage/08-integration-qa` at `d54c5e5`.
+
+---
+
+## Stage 8b & Stage 9: Contract Unification, Error Code Refinement & Deployment Preparation
+
+- **Date**: 2026-11-25
+- **Branch**: `stage/08b-cleanup`
+- **Activities**:
+  1. **Git Commit History Reconciliation**:
+     - Added `.gitattributes` enforcing LF line endings (`* text=auto eol=lf`) in commit `51d3768`.
+     - Soft-reset monolithic commit `d54c5e5` (`git reset --soft`) and recommitted by logical functional areas.
+  2. **Contract Unification & camelCase Enforcement**:
+     - Defined comprehensive request/response DTOs in `packages/shared/src/api-types.ts` (`PermitDto`, `PermitDetailResponseDto`, `PermitListResponseDto`, `DashboardStatsDto`, `AuditLogEntryDto`, `PermitWorkLogDto`, `CreatePermitRequest`, `UpdatePermitRequest`, `TransitionActionRequest`).
+     - Enforced strict pure `camelCase` for all API schemas, database response mappers, and frontend client calls (`completionNotes`, `plannedStart`, `plannedEnd`, `sortDir`).
+     - Removed dead alias `PermitAction.VERIFY_CLOSURE`; unified on `PermitAction.VERIFY = 'verify'`.
+     - Deleted all frontend and backend fallback shims (`actorName || actor?.name`, `completion_notes || completionNotes`, `fromStatus || fromValue`, `activeRightNow`, `expiringIn2Hours`, `entryType`, `notes`).
+  3. **Granular 403 vs 409 Error Codes**:
+     - Updated `transition-engine.ts`, `guards.ts`, and `guard-codes.ts` so authorization/ownership/role barriers return **403 Forbidden** with granular error codes:
+       - `SELF_APPROVAL_FORBIDDEN`: Requesters attempting to approve, reject, or verify their own permit.
+       - `WRONG_AREA`: Area Owner attempting to approve a permit outside their designated area.
+       - `ROLE_NOT_ALLOWED`: Actor role is not permitted for an action available from the current status.
+       - `NOT_PERMIT_OWNER`: Requester attempting to edit a permit created by someone else.
+     - Reserved **409 ILLEGAL_TRANSITION** strictly for invalid lifecycle state transitions (e.g. activating a DRAFT permit, closing a PENDING_APPROVAL permit, or modifying EXPIRED permits).
+     - Added HTTP integration test in `integration-workflows.test.ts` (Workflow G) proving a `SAFETY_OFFICER` who raised a permit cannot approve it (returns 403 `SELF_APPROVAL_FORBIDDEN`), while another approver or admin can sign off.
+  4. **Edit Draft Modal Warning**:
+     - Updated `PermitDetailPage.tsx` Edit Draft modal to display a prominent warning banner when editing a `PENDING_APPROVAL` permit: *"Saving changes resets all approval tiers to PENDING. Designated approvers must re-authorize."*
+     - Added note clarifying that type-specific details and gas readings cannot be altered in this modal.
+  5. **Sweep Endpoint Hardening**:
+     - Updated `internal.middleware.ts` to compute SHA-256 hashes of both provided and expected secrets before calling `crypto.timingSafeEqual`, eliminating all timing side-channels including string length discrepancies.
+     - Added `sweepRateLimiter` (30 requests/minute) using `express-rate-limit`.
+  6. **Audit & Known Issues Documentation**:
+     - Labeled Section 5 of `docs/STAGE_08_INTEGRATION_AUDIT.md` as UNVERIFIED (Manual audit only; headless browser automated testing not performed in sandbox environment).
+     - Recorded Windows Git hook Cygwin/MSYS `sh.exe NtCreateDirectoryObject` error and remote GitHub Actions CI verification in `docs/KNOWN_ISSUES.md`.
+     - Updated `docs/API.md` with unified camelCase contracts and refined 403/409 error specifications.
+  7. **Stage 9 Deployment Preparation (Render / Neon / Vercel)**:
+     - Prepared `render.yaml` for Render Web Service deployment of `@ptw/api` (`node apps/api/dist/server.js`).
+     - Prepared `apps/web/vercel.json` and root `vercel.json` with reverse-proxy rewrites (`/api/*` -> Render API) ensuring first-party cookie sessions.
+     - Added `db:migrate:remote`, `db:seed:remote`, and `smoke:deploy` scripts in root `package.json`.
+     - Created `scripts/post-deploy-smoke.js` automating health checks, 4-role logins, cookie session tests, permit list/stats verification, sweep secret authorization, and 409 transition guard checks.
+     - Added comprehensive Production Deployment section in `README.md` with step-by-step checklist, environment variable matrix, and external cron warm-up setup.
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across `@ptw/shared`, `@ptw/api`, and `@ptw/web`.
+  - `npm run build` -> Clean production build across all workspaces.
+  - `npm test` -> 239/239 tests passing (6 shared + 217 api + 16 web) across 14 test files with 0 failures.

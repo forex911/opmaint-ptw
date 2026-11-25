@@ -18,20 +18,21 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 
 ### Standard Error Codes
 - `401 UNAUTHENTICATED`: Session missing or expired.
-- `403 FORBIDDEN`: Insufficient role or forbidden action.
-  - `FORBIDDEN_SELF_APPROVAL`: Actor cannot approve/verify their own permit.
-  - `FORBIDDEN_AREA_MISMATCH`: Area Owner can only approve permits for their assigned area.
-  - `FORBIDDEN_ROLE_MISMATCH`: User does not hold the required role.
-  - `FORBIDDEN_NOT_OWNER`: Action restricted to the permit owner.
+- `403 FORBIDDEN`: Insufficient role or forbidden authorization action.
+  - `SELF_APPROVAL_FORBIDDEN`: Actor cannot approve, reject, or verify their own permit.
+  - `WRONG_AREA`: Area Owner can only approve permits for their assigned area.
+  - `ROLE_NOT_ALLOWED`: User does not hold the required role for this transition.
+  - `NOT_PERMIT_OWNER`: Action restricted to the permit owner.
+  - `DUTIES_SEPARATION_VIOLATION`: Same individual cannot sign off multiple approval tiers on the same permit (D-019).
 - `404 NOT_FOUND`: Resource does not exist.
-- `409 ILLEGAL_TRANSITION`: State transition not permitted in current state. Details include `{ from, action, allowedActions }`.
-- `409 EARLY_ACTIVATION`: Cannot activate permit before `planned_start`.
+- `409 ILLEGAL_TRANSITION`: State transition not permitted in current lifecycle state (e.g. attempting to activate DRAFT or modify EXPIRED). Details include `{ from, action, allowedActions }`.
+- `409 EARLY_ACTIVATION`: Cannot activate permit before `plannedStart`.
 - `409 STALE_GAS_TEST`: For `CONFINED_SPACE` permits, atmospheric gas test must be verified within 60 minutes of activation (D-010).
 - `409 PENDING_APPROVALS`: All approval tiers must be `APPROVED` before activation.
-- `409 DUTIES_SEPARATION_VIOLATION`: Same individual cannot sign off multiple approval tiers on the same permit (D-019).
 - `422 VALIDATION_ERROR`: Zod validation failure. Details include `{ path, message, code }[]`.
 - `422 MISSING_COMPLETION_NOTES`: Mandatory completion notes required when closing a permit (D-005).
 - `422 MISSING_COMMENT`: Mandatory comment required for `reject`, `suspend`, and `cancel` (D-005).
+- `429 RATE_LIMITED`: Rate limit exceeded for authentication or sweep triggers.
 
 ---
 

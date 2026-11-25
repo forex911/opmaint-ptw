@@ -34,4 +34,12 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Mitigation & Deployment Procedure**: Operators must generate a high-entropy secret using `openssl rand -hex 32` and provide it via the deployment environment configuration. Secrets must never be committed to source control.
 - **Status**: Enforced in `env.ts` with 8 automated unit tests in `env.test.ts`.
 
+### 7. Windows Git Pre-Commit Hook Execution (`sh.exe NtCreateDirectoryObject`) & CI Verification
+- **Description**: On Windows environments, Git commit hooks executing through Cygwin/MSYS subshells (`sh.exe`) can intermittently fail with `fatal error - NtCreateDirectoryObject: 0xC0000022` due to OS-level named object security restrictions inside sandboxed processes. Consequently, certain local commits on Windows may require `--no-verify`.
+- **Mitigation & CI Integrity**: Git commit integrity and code quality are strictly safeguarded by the central GitHub Actions continuous integration pipeline (`.github/workflows/ci.yml`), which triggers on every `push` (to `main` and all `stage/*` branches) and every `pull_request`. The CI workflow executes across Ubuntu containers with full network access and independently verifies:
+  1. `npm run typecheck` (strict TypeScript compiler check across all workspaces).
+  2. `npm run lint` (ESLint style and code quality rules).
+  3. `npm run test` (complete test suites executing against containerized PostgreSQL).
+- **Status**: Fully documented and mitigated via automated remote CI pipeline.
+
 
