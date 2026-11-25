@@ -126,7 +126,7 @@ export const DashboardPage: React.FC = () => {
             </span>
           </div>
           <p className="text-2xl font-bold font-mono text-emerald-900 mt-1">
-            {statsLoading ? <Skeleton className="h-8 w-12" /> : stats?.activeRightNow || 0}
+            {statsLoading ? <Skeleton className="h-8 w-12" /> : stats?.activeNow || 0}
           </p>
         </Card>
 
@@ -142,7 +142,7 @@ export const DashboardPage: React.FC = () => {
         <Card className="p-4 border-l-4 border-l-rose-500 bg-rose-50/20">
           <p className="text-xs font-semibold text-rose-800">Expiring in 2h</p>
           <p className="text-2xl font-bold font-mono text-rose-900 mt-1">
-            {statsLoading ? <Skeleton className="h-8 w-12" /> : stats?.expiringIn2Hours || 0}
+            {statsLoading ? <Skeleton className="h-8 w-12" /> : stats?.expiringIn2h || 0}
           </p>
         </Card>
 
@@ -183,7 +183,7 @@ export const DashboardPage: React.FC = () => {
             to="/permits?status=ACTIVE"
             className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1"
           >
-            <span>View All Active ({stats?.activeRightNow || 0})</span>
+            <span>View All Active ({stats?.activeNow || 0})</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>

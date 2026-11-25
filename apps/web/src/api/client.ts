@@ -9,6 +9,7 @@ import type {
   PermitListResponse,
   DashboardStats,
   PermitWorkLog,
+  AuditLogEntry,
 } from '../types/index.js';
 
 export interface ApiErrorDetail {
@@ -91,7 +92,7 @@ export const api = {
   },
 
   // Permits List & Stats
-  getPermits: (query: PermitListQuery = {}) => {
+  getPermits: async (query: PermitListQuery = {}): Promise<PermitListResponse> => {
     const params = new URLSearchParams();
     if (query.page) params.set('page', query.page.toString());
     if (query.limit) params.set('limit', query.limit.toString());
@@ -105,16 +106,38 @@ export const api = {
     if (query.mine) params.set('mine', 'true');
     if (query.pendingMyApproval) params.set('pendingMyApproval', 'true');
     if (query.sortBy) params.set('sortBy', query.sortBy);
-    if (query.sortOrder) params.set('sortOrder', query.sortOrder);
+    if (query.sortDir) params.set('sortDir', query.sortDir);
 
     const queryString = params.toString() ? `?${params.toString()}` : '';
-    return request<PermitListResponse>(`/api/permits${queryString}`);
+    const res = await request<PermitListResponse>(`/api/permits${queryString}`);
+
+    const items = res.items || res.permits || [];
+    const pagination = res.pagination || {
+      total: res.total || items.length,
+      page: res.page || 1,
+      limit: res.limit || 20,
+      totalPages: res.pages || 1,
+    };
+
+    return {
+      permits: items,
+      items,
+      total: pagination.total,
+      page: pagination.page,
+      limit: pagination.limit,
+      pages: pagination.totalPages,
+      pagination,
+    };
   },
 
-  getDashboardStats: () => request<DashboardStats>('/api/permits/stats'),
+  getDashboardStats: (): Promise<DashboardStats> =>
+    request<DashboardStats>('/api/permits/stats'),
 
   // Permit CRUD
   getPermit: (id: string) => request<PermitDetailResponse>(`/api/permits/${id}`),
+
+  getAuditTimeline: (id: string) =>
+    request<{ timeline: AuditLogEntry[] }>(`/api/permits/${id}/audit`),
 
   createPermit: (data: Record<string, unknown>) =>
     request<{ permit: Permit }>('/api/permits', {
@@ -135,7 +158,7 @@ export const api = {
       body: JSON.stringify({ comment }),
     }),
 
-  approvePermit: (id: string, body?: { comment?: string; signatureUrl?: string }) =>
+  approvePermit: (id: string, body?: { comment?: string; signatureData?: string }) =>
     request<{ permit: Permit }>(`/api/permits/${id}/approve`, {
       method: 'POST',
       body: JSON.stringify(body || {}),
@@ -171,8 +194,8 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  verifyClosure: (id: string, comment?: string) =>
-    request<{ permit: Permit }>(`/api/permits/${id}/verify-closure`, {
+  verifyPermit: (id: string, comment?: string) =>
+    request<{ permit: Permit }>(`/api/permits/${id}/verify`, {
       method: 'POST',
       body: JSON.stringify({ comment }),
     }),
@@ -184,7 +207,7 @@ export const api = {
     }),
 
   // Work Logs
-  addWorkLog: (id: string, body: { entryType: string; notes: string }) =>
+  addWorkLog: (id: string, body: { kind: string; note: string }) =>
     request<{ workLog: PermitWorkLog }>(`/api/permits/${id}/work-logs`, {
       method: 'POST',
       body: JSON.stringify(body),

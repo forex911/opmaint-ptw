@@ -63,10 +63,16 @@ export interface PermitApproval {
 export interface PermitWorkLog {
   id: string;
   permitId: string;
-  authorId: string;
-  entryType: 'PROGRESS' | 'GAS_TEST' | 'INCIDENT' | 'NOTE';
-  notes: string;
+  loggedBy: string;
+  loggedByName?: string;
+  kind: 'NOTE' | 'ENTRY' | 'EXIT' | string;
+  note: string;
   createdAt: string;
+  // Aliases for resilience:
+  authorId?: string;
+  authorName?: string;
+  entryType?: string;
+  notes?: string;
   author?: {
     id: string;
     name: string;
@@ -79,11 +85,16 @@ export interface AuditLogEntry {
   permitId: string;
   action: string;
   actorId: string | null;
-  fromStatus: PermitStatus | null;
-  toStatus: PermitStatus | null;
+  actorName?: string;
+  actorEmail?: string;
+  actorRole?: string;
+  fromValue?: string | null;
+  toValue?: string | null;
+  fromStatus?: PermitStatus | string | null;
+  toStatus?: PermitStatus | string | null;
   comment: string | null;
-  fieldDiffs: Array<{ field: string; from: unknown; to: unknown }> | null;
-  ipAddress: string | null;
+  fieldDiffs?: Array<{ field: string; from: unknown; to: unknown }> | null;
+  ipAddress?: string | null;
   createdAt: string;
   actor?: {
     id: string;
@@ -135,7 +146,7 @@ export interface PermitDetailResponse {
   approvals: PermitApproval[];
   allowedActions: PermitAction[];
   workLogs: PermitWorkLog[];
-  auditTimeline: AuditLogEntry[];
+  auditTimeline?: AuditLogEntry[];
 }
 
 export interface PermitListQuery {
@@ -151,6 +162,7 @@ export interface PermitListQuery {
   mine?: boolean;
   pendingMyApproval?: boolean;
   sortBy?: 'created_at' | 'planned_start' | 'planned_end' | 'permit_no' | 'status';
+  sortDir?: 'asc' | 'desc';
   sortOrder?: 'asc' | 'desc';
 }
 
@@ -160,12 +172,19 @@ export interface PermitListResponse {
   page: number;
   limit: number;
   pages: number;
+  items?: Permit[];
+  pagination?: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
 }
 
 export interface DashboardStats {
   total: number;
   byStatus: Record<PermitStatus, number>;
-  activeRightNow: number;
-  expiringIn2Hours: number;
+  activeNow: number;
+  expiringIn2h: number;
   pendingMyApproval: number;
 }

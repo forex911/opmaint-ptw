@@ -18,8 +18,10 @@ import {
   FileText,
   PlusCircle,
   MessageSquare,
+  Pencil,
 } from 'lucide-react';
 import { api } from '../api/client.js';
+import { useAuth } from '../context/AuthContext.js';
 import { Button } from '../components/ui/Button.js';
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card.js';
 import { StatusBadge } from '../components/ui/StatusBadge.js';
@@ -34,6 +36,7 @@ export const PermitDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user, isAdmin } = useAuth();
 
   // Active dialog modal state
   const [modalAction, setModalAction] = useState<PermitAction | null>(null);
@@ -44,7 +47,13 @@ export const PermitDetailPage: React.FC = () => {
   // Work log modal state
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false);
   const [workLogNotes, setWorkLogNotes] = useState('');
-  const [workLogType, setWorkLogType] = useState('PROGRESS');
+  const [workLogType, setWorkLogType] = useState('NOTE');
+
+  // Edit draft modal state
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editWorkDescription, setEditWorkDescription] = useState('');
+  const [editContractorTeam, setEditContractorTeam] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Fetch complete permit details
   const { data, isLoading, isError, error } = useQuery({
@@ -54,11 +63,19 @@ export const PermitDetailPage: React.FC = () => {
     refetchInterval: 10000,
   });
 
+  // Dedicated audit timeline query
+  const { data: auditData } = useQuery({
+    queryKey: ['permit-audit', id],
+    queryFn: () => api.getAuditTimeline(id!),
+    enabled: !!id,
+    refetchInterval: 10000,
+  });
+
   const permit = data?.permit;
   const approvals = data?.approvals || [];
   const allowedActions = data?.allowedActions || [];
   const workLogs = data?.workLogs || [];
-  const auditTimeline = data?.auditTimeline || [];
+  const auditTimeline = auditData?.timeline || data?.auditTimeline || [];
 
   // Generic transition mutation
   const transitionMutation = useMutation({
@@ -90,15 +107,15 @@ export const PermitDetailPage: React.FC = () => {
             completionNotes: completionNotes || 'Work completed and site left safe',
             comment,
           });
-        case 'verify_closure':
-          return api.verifyClosure(id, comment);
+        case 'verify':
+          return api.verifyPermit(id, comment);
         case 'cancel':
           return api.cancelPermit(id, comment);
       }
     },
     onSuccess: () => {
-      // Invalidate permit, list, and stats queries
       queryClient.invalidateQueries({ queryKey: ['permit', id] });
+      queryClient.invalidateQueries({ queryKey: ['permit-audit', id] });
       queryClient.invalidateQueries({ queryKey: ['permits'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
       setModalAction(null);
@@ -115,12 +132,33 @@ export const PermitDetailPage: React.FC = () => {
   const workLogMutation = useMutation({
     mutationFn: async () => {
       if (!id || !workLogNotes.trim()) return;
-      return api.addWorkLog(id, { entryType: workLogType, notes: workLogNotes });
+      return api.addWorkLog(id, { kind: workLogType, note: workLogNotes });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['permit', id] });
       setIsWorkLogModalOpen(false);
       setWorkLogNotes('');
+    },
+  });
+
+  // Edit draft mutation
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!id || !permit) return;
+      return api.updatePermit(id, {
+        version: permit.version,
+        workDescription: editWorkDescription,
+        contractorTeam: editContractorTeam,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['permit', id] });
+      queryClient.invalidateQueries({ queryKey: ['permit-audit', id] });
+      setIsEditModalOpen(false);
+      setEditError(null);
+    },
+    onError: (err: any) => {
+      setEditError(err.message || 'Failed to update permit');
     },
   });
 
@@ -161,7 +199,7 @@ export const PermitDetailPage: React.FC = () => {
       suspend: { label: 'Suspend Work', icon: <Pause className="w-4 h-4" />, variant: 'destructive' },
       resume: { label: 'Resume Work', icon: <RotateCcw className="w-4 h-4" />, variant: 'primary' },
       close: { label: 'Mark Work Complete', icon: <Flag className="w-4 h-4" />, variant: 'primary' },
-      verify_closure: { label: 'Verify Closure & Sign Off', icon: <ShieldCheck className="w-4 h-4" />, variant: 'primary' },
+      verify: { label: 'Verify Closure & Sign Off', icon: <ShieldCheck className="w-4 h-4" />, variant: 'primary' },
       cancel: { label: 'Cancel Permit', icon: <Ban className="w-4 h-4" />, variant: 'destructive' },
       expire: { label: 'Expire', icon: <Clock className="w-4 h-4" />, variant: 'secondary' },
     };
@@ -211,7 +249,7 @@ export const PermitDetailPage: React.FC = () => {
 
         {/* Action Panel: Render strictly what backend allowedActions contains! */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold text-slate-500">Authorized Actions:</span>
             {allowedActions.length === 0 ? (
               <span className="text-xs text-slate-400 italic">
@@ -222,6 +260,23 @@ export const PermitDetailPage: React.FC = () => {
                 {allowedActions.map((action) => renderActionButton(action))}
               </div>
             )}
+            {(permit.status === 'DRAFT' || permit.status === 'PENDING_APPROVAL') &&
+              (permit.requesterId === user?.id || isAdmin) && (
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={() => {
+                    setEditWorkDescription(permit.workDescription);
+                    setEditContractorTeam(permit.contractorTeam);
+                    setEditError(null);
+                    setIsEditModalOpen(true);
+                  }}
+                  className="gap-2"
+                >
+                  <Pencil className="w-4 h-4 text-slate-600" />
+                  <span>Edit Draft</span>
+                </Button>
+              )}
           </div>
 
           <div className="text-[11px] font-mono text-slate-400">
@@ -448,13 +503,13 @@ export const PermitDetailPage: React.FC = () => {
                 <div key={log.id} className="p-3 rounded-lg border border-slate-200 bg-slate-50 text-xs space-y-1">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800 font-mono text-[11px] px-2 py-0.5 rounded bg-white border border-slate-200">
-                      {log.entryType}
+                      {log.kind}
                     </span>
                     <span className="font-mono text-slate-400 text-[11px]">
-                      {new Date(log.createdAt).toLocaleString()} by {log.author?.name || 'Technician'}
+                      {new Date(log.createdAt).toLocaleString()} by {log.loggedByName || 'Technician'}
                     </span>
                   </div>
-                  <p className="text-slate-700 pt-1">{log.notes}</p>
+                  <p className="text-slate-700 pt-1">{log.note}</p>
                 </div>
               ))}
             </div>
@@ -473,9 +528,12 @@ export const PermitDetailPage: React.FC = () => {
         <CardContent>
           <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
             {auditTimeline.map((entry) => {
-              const actorLabel = entry.actor?.name
-                ? `${entry.actor.name} (${entry.actor.role})`
-                : 'System Automated Engine';
+              const actorLabel = entry.actorName
+                ? `${entry.actorName} (${entry.actorRole || 'USER'})`
+                : 'System';
+
+              const fromStatus = entry.fromValue;
+              const toStatus = entry.toValue;
 
               return (
                 <div key={entry.id} className="relative group">
@@ -496,11 +554,11 @@ export const PermitDetailPage: React.FC = () => {
                       <strong>Actor:</strong> {actorLabel}
                     </p>
 
-                    {entry.fromStatus && entry.toStatus && (
+                    {fromStatus && toStatus && (
                       <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                        <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">{entry.fromStatus}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">{fromStatus}</span>
                         <span>→</span>
-                        <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">{entry.toStatus}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">{toStatus}</span>
                       </div>
                     )}
 
@@ -513,7 +571,7 @@ export const PermitDetailPage: React.FC = () => {
                     {entry.fieldDiffs && entry.fieldDiffs.length > 0 && (
                       <div className="pt-1 space-y-1 text-[11px] font-mono">
                         <span className="text-slate-400 font-sans block">Modified Fields:</span>
-                        {entry.fieldDiffs.map((diff, idx) => (
+                        {entry.fieldDiffs.map((diff: any, idx: number) => (
                           <div key={idx} className="bg-white p-1 rounded border border-slate-100">
                             <strong>{diff.field}</strong>: {String(diff.from)} → {String(diff.to)}
                           </div>
@@ -613,10 +671,9 @@ export const PermitDetailPage: React.FC = () => {
                 onChange={(e) => setWorkLogType(e.target.value)}
                 className="w-full p-2 border border-[#E2E8F0] rounded-lg"
               >
-                <option value="PROGRESS">Work Progress</option>
-                <option value="GAS_TEST">Periodic Gas Measurement</option>
-                <option value="INCIDENT">Incident / Near Miss</option>
                 <option value="NOTE">General Note</option>
+                <option value="ENTRY">Confined Space Entry</option>
+                <option value="EXIT">Confined Space Exit</option>
               </select>
             </div>
 
@@ -644,6 +701,77 @@ export const PermitDetailPage: React.FC = () => {
                 onClick={() => workLogMutation.mutate()}
               >
                 Record Entry
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Edit Draft Details Modal */}
+      {isEditModalOpen && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Edit Permit Draft Details"
+          description={`Update core information for draft permit ${permit.permitNo}. Changes are version-locked (v${permit.version}).`}
+        >
+          <div className="space-y-4 text-xs">
+            {permit.status === 'PENDING_APPROVAL' && (
+              <div className="p-3 rounded-lg bg-amber-50 text-amber-900 border border-amber-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-bold text-amber-800">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <span>Approvals Will Be Reset</span>
+                </div>
+                <p className="text-[11px] text-amber-700">
+                  Warning: Saving changes to a permit in <strong>PENDING_APPROVAL</strong> resets all existing approval tiers back to PENDING. Designated approvers will be required to re-review and re-authorize this permit.
+                </p>
+              </div>
+            )}
+
+            <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 text-[11px]">
+              Notice: Type-specific safety requirements and gas readings are established during draft submission and cannot be altered here.
+            </div>
+
+            {editError && (
+              <div className="p-3 rounded-lg bg-rose-50 text-rose-700 border border-rose-200">
+                {editError}
+              </div>
+            )}
+
+            <div>
+              <label className="block font-semibold text-slate-800 mb-1">Work Description *</label>
+              <textarea
+                rows={3}
+                required
+                value={editWorkDescription}
+                onChange={(e) => setEditWorkDescription(e.target.value)}
+                className="w-full p-2.5 border border-[#E2E8F0] rounded-lg text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="block font-semibold text-slate-800 mb-1">Contractor / Performing Team *</label>
+              <input
+                type="text"
+                required
+                value={editContractorTeam}
+                onChange={(e) => setEditContractorTeam(e.target.value)}
+                className="w-full p-2.5 border border-[#E2E8F0] rounded-lg text-xs"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                isLoading={editMutation.isPending}
+                disabled={!editWorkDescription.trim() || !editContractorTeam.trim()}
+                onClick={() => editMutation.mutate()}
+              >
+                Save Changes
               </Button>
             </div>
           </div>
