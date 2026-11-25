@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: ptw-cmms-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: npm ci && npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/api build
+    startCommand: node apps/api/dist/server.js
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SWEEP_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://ptw-cmms-web.vercel.app
+      - key: COOKIE_SECURE
+        value: true
+      - key: COOKIE_SAME_SITE
+        value: lax
+      - key: TRUST_PROXY
+        value: true

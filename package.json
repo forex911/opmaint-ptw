@@ -10,12 +10,18 @@
   ],
   "scripts": {
     "prepare": "node scripts/install-hooks.js",
+    "dev": "npm run --workspace=@ptw/web dev",
+    "dev:web": "npm run --workspace=@ptw/web dev",
+    "dev:api": "npm run --workspace=@ptw/api dev",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "lint": "npm run --workspaces --if-present lint",
     "build": "npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "db:migrate": "npm run --workspace=@ptw/api db:migrate",
-    "db:seed": "npm run --workspace=@ptw/api db:seed"
+    "db:seed": "npm run --workspace=@ptw/api db:seed",
+    "db:migrate:remote": "npm run --workspace=@ptw/api db:migrate",
+    "db:seed:remote": "npm run --workspace=@ptw/api db:seed",
+    "smoke:deploy": "node scripts/post-deploy-smoke.js"
   },
   "devDependencies": {
     "typescript": "^5.5.4"

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/web build",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://ptw-cmms-api.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://ptw-cmms-api.onrender.com/health"
+    },
+    {
+      "source": "/internal/:path*",
+      "destination": "https://ptw-cmms-api.onrender.com/internal/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -123,3 +123,112 @@ See [docs/KNOWN_ISSUES.md](file:///D:/task/docs/KNOWN_ISSUES.md) for detailed de
 ## 6. AI Usage Transparency
 
 See [docs/AI_USAGE.md](file:///D:/task/docs/AI_USAGE.md) for the full log of AI prompts, generated code, human reviews, and corrected build errors.
+
+---
+
+## 7. Production Deployment (Vercel + Render + Neon)
+
+The PTW CMMS is prepared for cloud deployment using a decoupled 3-tier architecture:
+- **Frontend SPA**: Hosted on **Vercel** with automatic route rewrites (`/api/*` reverse-proxied to Render backend, ensuring cookies are transmitted as first-party same-origin without third-party tracking restrictions).
+- **Backend API**: Hosted on **Render** (Node.js Web Service) running `apps/api/dist/server.js`.
+- **Database**: **Neon** (Serverless PostgreSQL 16+ with SSL connection pooling).
+
+### Environment Variables
+
+#### Backend API (`apps/api` on Render)
+| Variable | Value / Description | Required | Example |
+|---|---|---|---|
+| `NODE_ENV` | `production` | Yes | `production` |
+| `PORT` | Listening port (Render default: `10000`) | Yes | `10000` |
+| `DATABASE_URL` | Neon pooled PostgreSQL connection string with SSL | Yes | `postgresql://user:pass@ep-xyz-pooler.neon.tech/neondb?sslmode=require` |
+| `JWT_SECRET` | High-entropy random string (min 32 chars) | Yes | `openssl rand -hex 32` |
+| `SWEEP_SECRET` | High-entropy random string (min 32 chars) for `/internal/sweep` | Yes | `openssl rand -hex 32` |
+| `CORS_ORIGIN` | Deployed Vercel frontend origin | Yes | `https://ptw-cmms.vercel.app` |
+| `COOKIE_SECURE` | Enforce HTTPS cookies in production | Yes | `true` |
+| `COOKIE_SAME_SITE` | Cookie SameSite policy | Yes | `lax` |
+| `TRUST_PROXY` | Trust reverse-proxy headers from Render/Vercel | Yes | `true` |
+
+#### Frontend Web (`apps/web` on Vercel)
+| Variable | Value / Description | Required |
+|---|---|---|
+| `VITE_API_URL` | Optional when using Vercel rewrites; defaults to `/api` | No |
+
+---
+
+### Step-by-Step Reviewer Deployment Checklist
+
+#### Step 1: Provision Neon PostgreSQL
+1. Sign in to [Neon Console](https://neon.tech) and create a project (e.g. `ptw-cmms-prod`).
+2. Copy the **Pooled connection string** (ends with `-pooler.neon.tech/neondb?sslmode=require`).
+3. Copy the **Direct connection string** (ends with `.neon.tech/neondb?sslmode=require`).
+
+#### Step 2: Run Remote Migrations & Seed Data
+From your local terminal with direct internet access to Neon:
+```bash
+# Set your Neon direct connection string and run migrations
+DATABASE_URL="postgresql://user:pass@ep-xyz.neon.tech/neondb?sslmode=require" npm run db:migrate:remote
+
+# Seed the required demo users, reference data, and 10 multi-status permits
+DATABASE_URL="postgresql://user:pass@ep-xyz.neon.tech/neondb?sslmode=require" npm run db:seed:remote
+```
+
+#### Step 3: Deploy Backend API on Render
+1. In [Render Dashboard](https://dashboard.render.com), click **New + > Web Service** and connect this repository.
+2. Configure settings:
+   - **Name**: `ptw-cmms-api`
+   - **Runtime**: `Node`
+   - **Build Command**: `npm ci && npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/api build`
+   - **Start Command**: `node apps/api/dist/server.js`
+   - **Health Check Path**: `/health`
+3. Add environment variables:
+   - `NODE_ENV`: `production`
+   - `DATABASE_URL`: *(Neon pooled connection string)*
+   - `JWT_SECRET`: *(generate via `openssl rand -hex 32`)*
+   - `SWEEP_SECRET`: *(generate via `openssl rand -hex 32`)*
+   - `CORS_ORIGIN`: `https://<YOUR-APP>.vercel.app`
+   - `COOKIE_SECURE`: `true`
+   - `COOKIE_SAME_SITE`: `lax`
+   - `TRUST_PROXY`: `true`
+4. Deploy and verify `GET https://ptw-cmms-api.onrender.com/health` returns `200 OK` `{"status":"ok"}`.
+
+#### Step 4: Deploy Frontend on Vercel
+1. In [Vercel Dashboard](https://vercel.com/new), import the repository.
+2. In `vercel.json` (or Project Settings), set the destination URL to point to your deployed Render URL:
+   ```json
+   "rewrites": [
+     { "source": "/api/:path*", "destination": "https://<YOUR-RENDER-API>.onrender.com/api/:path*" },
+     { "source": "/health", "destination": "https://<YOUR-RENDER-API>.onrender.com/health" },
+     { "source": "/internal/:path*", "destination": "https://<YOUR-RENDER-API>.onrender.com/internal/:path*" },
+     { "source": "/(.*)", "destination": "/index.html" }
+   ]
+   ```
+3. Deploy. Because `/api/*` rewrites proxy requests server-side, cookies are first-party and work in all modern browsers without CORS warnings.
+
+#### Step 5: External Cron Configuration (Free-Tier Health & Sweeper)
+Free-tier hosting providers (like Render) sleep after 15 minutes of inactivity. Use a free external cron monitor (e.g. [cron-job.org](https://cron-job.org) or GitHub Actions):
+1. **Render Keep-Warm Job**:
+   - URL: `GET https://<YOUR-RENDER-API>.onrender.com/health`
+   - Schedule: Every 10 minutes.
+2. **Background Expiry Sweeper Trigger**:
+   - URL: `POST https://<YOUR-RENDER-API>.onrender.com/internal/sweep`
+   - Headers: `X-Sweep-Secret: <YOUR_SWEEP_SECRET>`
+   - Schedule: Every 1 to 5 minutes.
+
+---
+
+### Post-Deployment Smoke Verification
+
+Run the automated smoke test script against your live deployment:
+```bash
+node scripts/post-deploy-smoke.js https://<YOUR-APP>.vercel.app --secret <YOUR_SWEEP_SECRET>
+```
+
+The script verifies:
+1. `GET /health` returns 200 OK with server timestamp.
+2. All 4 demo roles (`requester`, `area.owner`, `safety.officer`, `admin`) authenticate successfully.
+3. HttpOnly session cookies are transmitted and accepted.
+4. `GET /api/permits` lists the seeded permits with pagination metadata.
+5. `GET /api/permits/stats` returns live metric aggregations.
+6. `POST /internal/sweep` rejects unauthorized callers with 401 UNAUTHORIZED and processes scans with valid secret.
+7. State-machine guards return 409 ILLEGAL_TRANSITION when attempting invalid lifecycle actions.
+
