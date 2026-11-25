@@ -525,6 +525,13 @@ This append-only log tracks every stage, unit of work, verification result, and 
      - Updated `getPermitStats` in `permits.service.ts` to return `total` alongside `byStatus`, preventing `stats?.total` from evaluating to `undefined` in `DashboardPage.tsx`.
      - Updated `ReferenceDataPage.tsx` and `reference.routes.ts` so area owner uses flat camelCase `ownerName` and `ownerEmail`, and equipment selects both `tag` and `tagNo`.
      - *Commit*: `9ef3777 fix(dto): ensure consistent reference DTO field mapping and stats aggregation across client`
+  5. **Database Migration Synchronization & Auto-Migration Hook**:
+     - *Root Cause*: Migration `0002_permit_equipment_nullable.sql` was applied during test runs to `ptw_cmms_test`, but had not been executed on the development database `ptw_cmms`. The API server (`server.ts`) did not run migrations on startup, causing `equipment_id` `NOT NULL` constraint violations when creating permits without equipment on the live dev database.
+     - *Fix*:
+       - Executed `npm run --workspace=@ptw/api db:migrate` directly against `ptw_cmms`, applying `0002_permit_equipment_nullable.sql`.
+       - Updated `apps/api/src/server.ts` to call `await runMigrations()` on server startup before accepting incoming traffic, eliminating database schema drift across any environment.
+       - Updated `apps/api/src/index.ts` to catch startup rejections gracefully.
+     - *Commit*: `5f67a4d fix(api): run migrations automatically on server startup`
 - **Verification**:
   - `npm run typecheck` -> 0 errors across `@ptw/shared`, `@ptw/api`, and `@ptw/web`.
   - `npm run lint` -> 0 errors across all workspaces.
