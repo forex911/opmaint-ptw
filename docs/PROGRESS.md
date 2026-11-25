@@ -485,3 +485,48 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run typecheck` -> 0 errors across `@ptw/shared`, `@ptw/api`, and `@ptw/web`.
   - `npm run build` -> Clean production build across all workspaces.
   - `npm test` -> 239/239 tests passing (6 shared + 217 api + 16 web) across 14 test files with 0 failures.
+
+---
+
+## Stage 10a: Functional Bug Fixes & Contract Resilience
+
+- **Date**: 2026-11-25
+- **Branch**: `fix/functional-bugs-1` (branched from `main` at `825a5e6`)
+- **Activities**:
+  1. **Bug 1: Permit Detail Page Blank Render Crash & Contract Mismatch**:
+     - *Reproduction*: Captured unhandled React exception: `Error: Objects are not valid as a React child (found: object with keys {status})` at `PermitDetailPage.tsx:559` when rendering audit trail entries from PostgreSQL `jsonb` objects (`from_value = {"status": "DRAFT"}`). In addition, absence of a top-level `ErrorBoundary` caused the entire React component root to unmount, resulting in a blank white screen. Missing camelCase properties (`permit.requesterName`, `permit.plantName`, `permit.areaName`, `permit.equipmentTag`, `appr.deciderName`, `appr.decidedAt`) failed to render.
+     - *Fix*:
+       - Added top-level React `ErrorBoundary` in `apps/web/src/components/common/ErrorBoundary.tsx` and wrapped `<Routes>` in `apps/web/src/App.tsx` with friendly recovery actions ("Back to permits", retry button, and dev-only technical details).
+       - Added `formatAuditStatus` helper safely extracting status string from either string or JSON object.
+       - Corrected flat camelCase properties on `Permit` and `PermitApproval`.
+       - Added runtime Zod validation schemas (`permitDetailResponseDtoSchema`, `auditTimelineResponseDtoSchema`, `permitDtoSchema`, etc.) in `packages/shared/src/api-types.ts`.
+       - Added component tests in `PermitDetailPage.test.tsx` testing 6 states (`DRAFT`, `PENDING_APPROVAL`, `ACTIVE`, `SUSPENDED`, `EXPIRED`, `CLOSED_VERIFIED`) and 4 roles, plus ErrorBoundary fallback test.
+       - Added API contract test `permits.contract.test.ts` validating real `GET /api/permits/:id` and `GET /api/permits/:id/audit` responses against the shared Zod DTO schema.
+     - *Commit*: `5c6857f fix(web): resolve PermitDetailPage blank render crash and add ErrorBoundary`
+  2. **Bug 2: Equipment Cascade & equipmentId Format Validation**:
+     - *Reproduction*: Creating a permit in an area without selecting equipment submitted `equipmentId: ""` (empty string), causing backend 422: `"equipmentId: Invalid equipment ID format"`. Furthermore, omitting `equipmentId` was rejected because `createPermitSchema` required a UUID and the PostgreSQL column had `NOT NULL`.
+     - *Fix*:
+       - Created database migration `0002_permit_equipment_nullable.sql` altering `permits.equipment_id DROP NOT NULL`.
+       - Updated `createPermitSchema` in `permits.schema.ts` to `equipmentId: z.string().uuid().nullable().optional()`.
+       - Updated `validateLocationConsistency` in `permit-validation.service.ts` to return clear 422 message `"Select equipment from the chosen area"` when mismatched equipment is sent.
+       - Updated `CreatePermitPage.tsx`: removed premature auto-select of plant, implemented clean cascade reset on plant/area changes, updated equipment select to show `"No equipment in this area (optional)"` when an area has zero equipment, and omitted empty string `equipmentId` from API payload.
+       - Added component test `CreatePermitPage.test.tsx` testing full cascade loading, plant change reset, zero equipment state, and omitted equipment submission.
+       - Added API test `equipment-cascade.test.ts` testing `/api/equipment?areaId=`, empty string 422, null/omitted 201 creation, and mismatched equipment 422.
+     - *Commit*: `162d66a fix(permits): fix equipment cascade and omit empty equipmentId`
+  3. **Bug 3: Permit List Pagination Next Button & Query Key**:
+     - *Reproduction*: In `PermitsListPage.tsx`, `updateFilter` blindly executed `next.set('page', '1')` on every update, so clicking "Next" (`updateFilter('page', '2')`) immediately reverted `page` back to `'1'`, preventing navigation past page 1.
+     - *Fix*:
+       - Updated `updateFilter` to only reset page to 1 when a filter other than `page` is changed (`if (key !== 'page') next.set('page', '1')`).
+       - Synchronized pagination controls with TanStack query key (which includes `page`), and normalized totalPages calculation (`Math.max(1, data?.pagination?.totalPages || 1)`).
+       - Added component test `PermitsListPage.test.tsx` verifying navigation from page 1 -> 2 -> 3, disabling Next on page 3, filter reset to page 1, and query key separation.
+       - Added API test `permits.pagination.test.ts` verifying `GET /api/permits?page=2&limit=5` returns distinct items from page 1 and accurate pagination metadata.
+     - *Commit*: `7820121 fix(web): fix pagination controls and query key synchronization in permits list`
+  4. **Client-wide DTO Consistency Audit**:
+     - Updated `getPermitStats` in `permits.service.ts` to return `total` alongside `byStatus`, preventing `stats?.total` from evaluating to `undefined` in `DashboardPage.tsx`.
+     - Updated `ReferenceDataPage.tsx` and `reference.routes.ts` so area owner uses flat camelCase `ownerName` and `ownerEmail`, and equipment selects both `tag` and `tagNo`.
+     - *Commit*: `9ef3777 fix(dto): ensure consistent reference DTO field mapping and stats aggregation across client`
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across `@ptw/shared`, `@ptw/api`, and `@ptw/web`.
+  - `npm run lint` -> 0 errors across all workspaces.
+  - `npm run build` -> Clean production build across all workspaces.
+  - `npm test` -> 262/262 tests passing (6 shared + 224 api + 32 web) across 20 test files with 0 failures.
