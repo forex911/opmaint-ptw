@@ -59,8 +59,8 @@ export const PermitsListPage: React.FC = () => {
   });
 
   const permits = data?.permits || [];
-  const totalPages = data?.pages || 1;
-  const totalRecords = data?.total || 0;
+  const totalPages = Math.max(1, data?.pagination?.totalPages || data?.pages || 1);
+  const totalRecords = data?.pagination?.total ?? data?.total ?? 0;
 
   const updateFilter = (key: string, value: string | boolean) => {
     const next = new URLSearchParams(searchParams);
@@ -69,7 +69,9 @@ export const PermitsListPage: React.FC = () => {
     } else {
       next.set(key, String(value));
     }
-    next.set('page', '1'); // Reset to page 1 on filter change
+    if (key !== 'page') {
+      next.set('page', '1'); // Reset to page 1 on filter change
+    }
     setSearchParams(next);
   };
 

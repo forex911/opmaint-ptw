@@ -119,6 +119,26 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 2 (Role Alignment on Suspend Guard Check)**: In `spec-compliance.test.ts`, `requesterAgent` attempted to trigger the `MISSING_COMMENT` guard on `/suspend`. Because `transitions.ts` restricts `suspend` to `SAFETY_OFFICER` and `ADMIN`, `transition()` rejected the requester with 409 `ILLEGAL_TRANSITION` before guard evaluation. Updated the test to use `safetyOfficerAgent`, accurately asserting the 422 `MISSING_COMMENT` error code.
   - **Correction 3 (Top-Level allowedActions Property Resolution)**: In `spec-compliance.test.ts`, tests initially inspected `res.body.permit.allowedActions`. `getPermitById` returns `{ permit, approvals, workLogs, allowedActions }` where `allowedActions` resides at the top level. Updated property assertions to read `res.body.allowedActions`.
 
+---
+
+## Stage 10a: Functional Bug Fixing & Contract Hardening
+
+- **AI-Assisted Deliverables**:
+  - Root cause investigation, reproduction test harnesses, and fixes for three functional bugs on `fix/functional-bugs-1`.
+  - Added top-level React `ErrorBoundary` in `apps/web/src/components/common/ErrorBoundary.tsx` wrapping all routes in `apps/web/src/App.tsx`.
+  - Added runtime Zod validation schemas (`permitDetailResponseDtoSchema`, `auditTimelineResponseDtoSchema`, etc.) in `packages/shared/src/api-types.ts`.
+  - Added `PermitDetailPage.test.tsx` verifying all 6 permit lifecycle states and 4 roles, plus ErrorBoundary crash catching.
+  - Added `apps/api/src/modules/permits/permits.contract.test.ts` validating real HTTP responses against Zod DTO contracts.
+  - Added migration `0002_permit_equipment_nullable.sql` enabling optional equipment assignment for general area activities.
+  - Added `CreatePermitPage.test.tsx` testing the Plant -> Area -> Equipment cascade, reset behavior, and omitted equipment payloads.
+  - Added `equipment-cascade.test.ts` verifying area filtering and 422 location hierarchy messages.
+  - Added `PermitsListPage.test.tsx` testing pagination controls (pages 1 -> 2 -> 3), filter resets to page 1, and query key synchronization.
+  - Added `permits.pagination.test.ts` verifying API pagination responses.
+- **Human Review & Corrections**:
+  - **Correction 1 (React Child Object Render Error)**: PostgreSQL `jsonb` audit values (`from_value = {"status": "DRAFT"}`) were rendered directly as `<span>{fromStatus}</span>`. React threw `Objects are not valid as a React child`. Corrected by implementing `formatAuditStatus` helper parsing both primitive strings and JSON objects.
+  - **Correction 2 (Premature Plant Auto-Select)**: `CreatePermitPage` initially auto-selected the first plant via `useEffect`, interfering with manual cascade testing. Removed auto-selection to require explicit user choice with clear placeholders.
+  - **Correction 3 (Blind Pagination Reset on Next Button)**: In `PermitsListPage.tsx`, `updateFilter` called `next.set('page', '1')` on every filter update. When the user clicked "Next" (`updateFilter('page', '2')`), `page` was immediately overwritten back to `'1'`. Fixed by guarding with `if (key !== 'page') next.set('page', '1')`.
+
 
 
 

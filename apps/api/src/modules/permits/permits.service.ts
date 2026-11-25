@@ -106,7 +106,7 @@ export class PermitsService {
         input.workDescription,
         input.plantId,
         input.areaId,
-        input.equipmentId,
+        input.equipmentId || null,
         new Date(input.plannedStart),
         new Date(input.plannedEnd),
         input.hazards || [],
@@ -445,6 +445,7 @@ export class PermitsService {
         deciderName: r.decider_name,
         decidedAt: r.decided_at,
         comment: r.comment,
+        signatureData: r.signature_data,
       })),
       workLogs: workLogsRes.rows,
       allowedActions,
@@ -669,7 +670,10 @@ export class PermitsService {
       }
     }
 
+    const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
+
     return {
+      total,
       byStatus,
       activeNow,
       expiringIn2h,

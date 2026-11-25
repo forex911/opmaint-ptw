@@ -305,7 +305,9 @@ export const PermitDetailPage: React.FC = () => {
               </div>
               <div>
                 <span className="text-slate-400 block">Requester:</span>
-                <span className="font-semibold text-slate-800">{permit.requester?.name || 'Authorized Tech'}</span>
+                <span className="font-semibold text-slate-800">
+                  {permit.requesterName || permit.requester?.name || 'Authorized Tech'}
+                </span>
               </div>
             </div>
           </div>
@@ -321,15 +323,23 @@ export const PermitDetailPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-2">
               <div>
                 <span className="text-slate-400 block">Plant:</span>
-                <span className="font-bold text-slate-800">{permit.plant?.name || 'Main Facility'}</span>
+                <span className="font-bold text-slate-800">
+                  {permit.plantName || permit.plant?.name || 'Main Facility'}
+                </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Area:</span>
-                <span className="font-bold text-slate-800">{permit.area?.name || 'Area 1'}</span>
+                <span className="font-bold text-slate-800">
+                  {permit.areaName || permit.area?.name || 'Area 1'}
+                </span>
               </div>
               <div>
                 <span className="text-slate-400 block">Equipment:</span>
-                <span className="font-bold text-slate-800">{permit.equipment?.name || 'Unit A'}</span>
+                <span className="font-bold text-slate-800">
+                  {permit.equipmentName
+                    ? `${permit.equipmentName}${permit.equipmentTag ? ` (${permit.equipmentTag})` : ''}`
+                    : permit.equipment?.name || (permit.equipmentId ? 'Assigned Equipment' : 'None')}
+                </span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 font-mono text-[11px]">
@@ -454,10 +464,10 @@ export const PermitDetailPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-3 font-medium text-slate-800">
-                        {appr.approver?.name || (appr.status === 'PENDING' ? 'Awaiting assignment' : 'System')}
+                        {appr.deciderName || appr.approver?.name || (appr.status === 'PENDING' ? 'Awaiting assignment' : 'System')}
                       </td>
                       <td className="px-6 py-3 font-mono text-slate-500">
-                        {appr.approvedAt ? new Date(appr.approvedAt).toLocaleString() : '—'}
+                        {(appr.decidedAt || appr.approvedAt) ? new Date((appr.decidedAt || appr.approvedAt)!).toLocaleString() : '—'}
                       </td>
                       <td className="px-6 py-3 text-slate-600 italic">
                         {appr.comment || '—'}
@@ -532,8 +542,20 @@ export const PermitDetailPage: React.FC = () => {
                 ? `${entry.actorName} (${entry.actorRole || 'USER'})`
                 : 'System';
 
-              const fromStatus = entry.fromValue;
-              const toStatus = entry.toValue;
+              const formatAuditStatus = (val: unknown): string => {
+                if (!val) return '';
+                if (typeof val === 'string') return val;
+                if (typeof val === 'object' && val !== null) {
+                  if ('status' in val && typeof (val as Record<string, unknown>).status === 'string') {
+                    return (val as Record<string, unknown>).status as string;
+                  }
+                  return JSON.stringify(val);
+                }
+                return String(val);
+              };
+
+              const fromStatus = formatAuditStatus(entry.fromValue);
+              const toStatus = formatAuditStatus(entry.toValue);
 
               return (
                 <div key={entry.id} className="relative group">

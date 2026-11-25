@@ -68,6 +68,7 @@ referenceRouter.get('/equipment', requireAuth, async (req, res, next) => {
         e.id, 
         e.area_id AS "areaId", 
         e.tag, 
+        e.tag AS "tagNo",
         e.name
       FROM equipment e
     `;

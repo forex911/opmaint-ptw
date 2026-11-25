@@ -297,6 +297,34 @@ This log records every architectural decision, rejected alternative, and trade-o
   - Clean lifecycle: `startSweeper()` is idempotent; `stopSweeper()` is safe to call repeatedly and awaits in-flight sweeps before process termination.
 - **Status**: Accepted
 
+---
+
+### D-023 Optional Equipment Assignment for General Area Permits
+- **Context**: In industrial operations, certain permits (e.g., general area cleaning, surface painting, scaffolding inspection in open storage yards) apply to an entire operational area rather than a specific tag-numbered equipment unit. Requiring equipment on all permits prevented drafting valid area-wide permits.
+- **Options considered**:
+  - *Option A*: Require dummy or synthetic equipment records for every area.
+  - *Option B*: Make `equipmentId` optional and nullable across the database schema, API validators, and frontend forms.
+- **Decision**: Option B — Make `equipmentId` optional and nullable.
+- **Consequences**:
+  - Database column `permits.equipment_id` has `NOT NULL` dropped via migration `0002_permit_equipment_nullable.sql`.
+  - Zod schemas allow `equipmentId: z.string().uuid().nullable().optional()`.
+  - Location hierarchy validation verifies that IF `equipmentId` is provided, it must exist and belong to the selected `areaId`; if omitted, the permit is successfully associated with the area.
+  - Frontend form omits `equipmentId` when unselected and displays "No equipment in this area (optional)" when an area contains zero equipment.
+- **Status**: Accepted
+
+---
+
+### D-024 Client Error Boundary & React Render Resilience
+- **Context**: Unexpected client-side rendering exceptions (such as attempting to render object shapes or missing nested properties) previously caused the root React component tree to crash and unmount, leaving users with a blank white screen.
+- **Options considered**:
+  - *Option A*: Rely solely on defensive coding in individual child components without error boundaries.
+  - *Option B*: Implement a top-level React `ErrorBoundary` wrapping the router tree, combined with safe rendering helpers for polymorphic audit data.
+- **Decision**: Option B — Implement `ErrorBoundary` at `<App />` root with friendly recovery UI and dev-only diagnostic details.
+- **Consequences**:
+  - Unhandled child rendering exceptions are trapped gracefully; the user is presented with industrial recovery actions ("Back to permits" and reload options) without unmounting the navigation shell.
+  - Technical diagnostic information is restricted to non-production environments to avoid exposing system details.
+- **Status**: Accepted
+
 
 
 

@@ -42,4 +42,10 @@ This document tracks known limitations, intentional design trade-offs, and featu
   3. `npm run test` (complete test suites executing against containerized PostgreSQL).
 - **Status**: Fully documented and mitigated via automated remote CI pipeline.
 
+### 8. Functional Bugs 1, 2, and 3 Resolved (Stage 10a)
+- **Bug 1 (Permit Detail Blank White Page)**: Resolved via top-level `ErrorBoundary` and safe `formatAuditStatus` JSON object handling in `PermitDetailPage.tsx`.
+- **Bug 2 (Equipment Cascade & equipmentId Format Validation)**: Resolved via migration `0002_permit_equipment_nullable.sql`, `.nullable().optional()` Zod schema, location validation message alignment ("Select equipment from the chosen area"), and omitting empty string equipment IDs from API payloads.
+- **Bug 3 (Permits List Next Button Reverting to Page 1)**: Resolved via conditional page reset in `PermitsListPage.tsx`'s `updateFilter` (`if (key !== 'page') next.set('page', '1')`) and query key synchronization.
+- **Status**: Resolved and verified with 262 automated tests across all workspaces.
+
 

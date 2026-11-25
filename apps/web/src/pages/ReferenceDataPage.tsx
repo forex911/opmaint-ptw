@@ -175,9 +175,10 @@ export const ReferenceDataPage: React.FC = () => {
                       <td className="px-6 py-3 font-mono font-bold text-slate-900">{area.code}</td>
                       <td className="px-6 py-3 font-semibold text-slate-800">{area.name}</td>
                       <td className="px-6 py-3 text-slate-700">
-                        {area.areaOwner ? (
+                        {area.ownerName || area.areaOwner?.name ? (
                           <span>
-                            <strong>{area.areaOwner.name}</strong> ({area.areaOwner.email})
+                            <strong>{area.ownerName || area.areaOwner?.name}</strong>{' '}
+                            ({area.ownerEmail || area.areaOwner?.email})
                           </span>
                         ) : (
                           <span className="text-slate-400 italic">Unassigned</span>
@@ -237,7 +238,7 @@ export const ReferenceDataPage: React.FC = () => {
                   {equipment.map((eq) => (
                     <tr key={eq.id} className="hover:bg-slate-50">
                       <td className="px-6 py-3 font-mono font-bold text-slate-900 bg-slate-50/50">
-                        {eq.tagNo}
+                        {eq.tagNo || eq.tag}
                       </td>
                       <td className="px-6 py-3 font-semibold text-slate-800">{eq.name}</td>
                       <td className="px-6 py-3 text-slate-600">{eq.description || '—'}</td>
