@@ -34,7 +34,6 @@ export const permits = pgTable(
       .notNull()
       .references(() => areas.id, { onDelete: 'restrict' }),
     equipmentId: uuid('equipment_id')
-      .notNull()
       .references(() => equipment.id, { onDelete: 'restrict' }),
     plannedStart: timestamp('planned_start', { withTimezone: true, mode: 'date' }).notNull(),
     plannedEnd: timestamp('planned_end', { withTimezone: true, mode: 'date' }).notNull(),

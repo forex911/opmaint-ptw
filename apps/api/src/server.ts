@@ -1,13 +1,9 @@
 import { app } from './app.js';
 import { env } from './config/env.js';
 import { closeDbConnection } from './db/client.js';
-import { runMigrations } from './db/migrate.js';
 import { startSweeper, stopSweeper } from './modules/permits/sweeper/expiry-sweeper.js';
 
-export async function startServer() {
-  // Run pending database migrations automatically on startup
-  await runMigrations();
-
+export function startServer() {
   // Start the background expiry sweeper
   startSweeper();
 

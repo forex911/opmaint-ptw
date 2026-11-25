@@ -178,11 +178,13 @@ DATABASE_URL="postgresql://user:pass@ep-xyz.neon.tech/neondb?sslmode=require" np
    - **Name**: `ptw-cmms-api`
    - **Runtime**: `Node`
    - **Build Command**: `npm ci && npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/api build`
+   - **Pre-Deploy Command**: `npm run db:migrate` (executes database migrations using `ADMIN_DATABASE_URL` before new instances start, per D-026)
    - **Start Command**: `node apps/api/dist/server.js`
    - **Health Check Path**: `/health`
 3. Add environment variables:
    - `NODE_ENV`: `production`
-   - `DATABASE_URL`: *(Neon pooled connection string)*
+   - `DATABASE_URL`: *(Neon pooled connection string for runtime app)*
+   - `ADMIN_DATABASE_URL`: *(Neon direct connection string for pre-deploy migrations)*
    - `JWT_SECRET`: *(generate via `openssl rand -hex 32`)*
    - `SWEEP_SECRET`: *(generate via `openssl rand -hex 32`)*
    - `CORS_ORIGIN`: `https://<YOUR-APP>.vercel.app`
