@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { UserRole } from './roles.js';
 import type { PermitStatus, PermitAction, ApprovalStatus, WorkLogKind } from './statuses.js';
 import type { PermitTypeCode } from './registry/definitions.js';
@@ -193,8 +194,8 @@ export interface AuditLogEntryDto {
   actorEmail: string;
   actorRole: string;
   action: string;
-  fromValue: string | null;
-  toValue: string | null;
+  fromValue: string | Record<string, unknown> | null;
+  toValue: string | Record<string, unknown> | null;
   comment: string | null;
   createdAt: string;
 }
@@ -275,3 +276,98 @@ export interface LoginRequest {
 export interface LoginResponse {
   user: UserDto;
 }
+
+// ---------------------------------------------------------------------------
+// Zod Schemas for Runtime Contract Validation
+// ---------------------------------------------------------------------------
+
+export const auditLogEntryDtoSchema = z.object({
+  id: z.union([z.string(), z.number()]).transform((v) => String(v)),
+  permitId: z.string().uuid(),
+  actorId: z.string().uuid().nullable().optional(),
+  actorName: z.string(),
+  actorEmail: z.string(),
+  actorRole: z.string(),
+  action: z.string(),
+  fromValue: z.union([z.string(), z.record(z.unknown()), z.null()]).optional(),
+  toValue: z.union([z.string(), z.record(z.unknown()), z.null()]).optional(),
+  comment: z.string().nullable().optional(),
+  createdAt: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
+});
+
+export const auditTimelineResponseDtoSchema = z.object({
+  timeline: z.array(auditLogEntryDtoSchema),
+});
+
+export const permitDtoSchema = z.object({
+  id: z.string().uuid(),
+  permitNo: z.string(),
+  type: z.enum(['HOT_WORK', 'CONFINED_SPACE', 'WORKING_AT_HEIGHT', 'ELECTRICAL_LOTO'] as const),
+  status: z.enum([
+    'DRAFT',
+    'PENDING_APPROVAL',
+    'APPROVED',
+    'ACTIVE',
+    'SUSPENDED',
+    'REJECTED',
+    'EXPIRED',
+    'CLOSED',
+    'CLOSED_VERIFIED',
+    'CANCELLED',
+  ] as const),
+  requesterId: z.string().uuid(),
+  plantId: z.string().uuid(),
+  areaId: z.string().uuid(),
+  equipmentId: z.string().uuid().nullable().optional(),
+  contractorTeam: z.string(),
+  workDescription: z.string(),
+  plannedStart: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
+  plannedEnd: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
+  hazards: z.array(z.string()).default([]),
+  ppe: z.array(z.string()).default([]),
+  details: z.record(z.unknown()).default({}),
+  version: z.number().int(),
+  completionNotes: z.string().nullable().optional(),
+  closedAt: z.union([z.string(), z.date(), z.null()]).optional(),
+  verifiedBy: z.string().nullable().optional(),
+  verifiedAt: z.union([z.string(), z.date(), z.null()]).optional(),
+  createdAt: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
+  updatedAt: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
+  plantName: z.string().optional(),
+  areaName: z.string().optional(),
+  equipmentTag: z.string().nullable().optional(),
+  equipmentName: z.string().nullable().optional(),
+  requesterName: z.string().optional(),
+  requesterEmail: z.string().optional(),
+});
+
+export const permitApprovalDtoSchema = z.object({
+  id: z.string(),
+  permitId: z.string().uuid(),
+  requiredRole: z.enum(['REQUESTER', 'AREA_OWNER', 'SAFETY_OFFICER', 'ADMIN'] as const),
+  requiredUserId: z.string().uuid().nullable().optional(),
+  status: z.enum(['PENDING', 'APPROVED', 'REJECTED'] as const),
+  decidedBy: z.string().uuid().nullable().optional(),
+  deciderName: z.string().nullable().optional(),
+  decidedAt: z.union([z.string(), z.date(), z.null()]).optional(),
+  comment: z.string().nullable().optional(),
+  signatureData: z.string().nullable().optional(),
+});
+
+export const permitWorkLogDtoSchema = z.object({
+  id: z.string(),
+  permitId: z.string().uuid(),
+  loggedBy: z.string().uuid(),
+  loggedByName: z.string().optional(),
+  kind: z.string(),
+  note: z.string(),
+  createdAt: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
+});
+
+export const permitDetailResponseDtoSchema = z.object({
+  permit: permitDtoSchema,
+  approvals: z.array(permitApprovalDtoSchema),
+  workLogs: z.array(permitWorkLogDtoSchema),
+  allowedActions: z.array(z.string()),
+});
+

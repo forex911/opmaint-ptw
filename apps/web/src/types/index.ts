@@ -46,12 +46,17 @@ export interface PermitApproval {
   id: string;
   permitId: string;
   requiredRole: UserRole;
-  assignedUserId: string | null;
+  requiredUserId?: string | null;
+  assignedUserId?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
-  approvedAt: string | null;
-  approverId: string | null;
+  decidedBy?: string | null;
+  deciderName?: string | null;
+  decidedAt?: string | null;
+  approvedAt?: string | null;
+  approverId?: string | null;
   comment: string | null;
-  signatureUrl: string | null;
+  signatureData?: string | null;
+  signatureUrl?: string | null;
   approver?: {
     id: string;
     name: string;
@@ -126,6 +131,12 @@ export interface Permit {
   verifiedBy: string | null;
   createdAt: string;
   updatedAt: string;
+  plantName?: string;
+  areaName?: string;
+  equipmentName?: string | null;
+  equipmentTag?: string | null;
+  requesterName?: string;
+  requesterEmail?: string;
   // Associated entities populated by endpoints
   requester?: {
     id: string;

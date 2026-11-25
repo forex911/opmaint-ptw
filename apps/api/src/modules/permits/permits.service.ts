@@ -445,6 +445,7 @@ export class PermitsService {
         deciderName: r.decider_name,
         decidedAt: r.decided_at,
         comment: r.comment,
+        signatureData: r.signature_data,
       })),
       workLogs: workLogsRes.rows,
       allowedActions,
