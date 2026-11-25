@@ -130,7 +130,7 @@ See [docs/AI_USAGE.md](file:///D:/task/docs/AI_USAGE.md) for the full log of AI 
 
 The PTW CMMS is prepared for cloud deployment using a decoupled 3-tier architecture:
 - **Frontend SPA**: Hosted on **Vercel** with automatic route rewrites (`/api/*` reverse-proxied to Render backend, ensuring cookies are transmitted as first-party same-origin without third-party tracking restrictions).
-- **Backend API**: Hosted on **Render** (Node.js Web Service) running `apps/api/dist/server.js`.
+- **Backend API**: Hosted on **Render** (Node.js Web Service) running `apps/api/dist/index.js`.
 - **Database**: **Neon** (Serverless PostgreSQL 16+ with SSL connection pooling).
 
 ### Environment Variables
@@ -179,7 +179,7 @@ DATABASE_URL="postgresql://user:pass@ep-xyz.neon.tech/neondb?sslmode=require" np
    - **Runtime**: `Node`
    - **Build Command**: `npm ci && npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/api build`
    - **Pre-Deploy Command**: `npm run db:migrate` (executes database migrations using `ADMIN_DATABASE_URL` before new instances start, per D-026)
-   - **Start Command**: `node apps/api/dist/server.js`
+   - **Start Command**: `node apps/api/dist/index.js`
    - **Health Check Path**: `/health`
 3. Add environment variables:
    - `NODE_ENV`: `production`

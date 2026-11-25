@@ -19,9 +19,13 @@ export function createApp(configure?: (app: Express) => void): Express {
   app.use(helmetMiddleware);
 
   // Cross-Origin Resource Sharing (CORS) with credentials enabled
+  const allowedOrigins = env.CORS_ORIGIN.includes(',')
+    ? env.CORS_ORIGIN.split(',').map((o) => o.trim())
+    : env.CORS_ORIGIN;
+
   app.use(
     cors({
-      origin: env.CORS_ORIGIN,
+      origin: allowedOrigins,
       credentials: true,
     })
   );

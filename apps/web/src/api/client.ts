@@ -33,6 +33,9 @@ export class ApiError extends Error {
 }
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const baseUrl = ((import.meta.env.VITE_API_URL as string | undefined) || '').replace(/\/+$/, '');
+  const url = endpoint.startsWith('http') || !baseUrl ? endpoint : `${baseUrl}${endpoint}`;
+
   const config: RequestInit = {
     ...options,
     credentials: 'include', // Ensure HttpOnly cookies are transmitted
@@ -43,7 +46,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     },
   };
 
-  const response = await fetch(endpoint, config);
+  const response = await fetch(url, config);
 
   if (response.status === 204) {
     return {} as T;
