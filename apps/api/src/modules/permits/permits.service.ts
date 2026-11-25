@@ -670,7 +670,10 @@ export class PermitsService {
       }
     }
 
+    const total = Object.values(byStatus).reduce((a, b) => a + b, 0);
+
     return {
+      total,
       byStatus,
       activeNow,
       expiringIn2h,

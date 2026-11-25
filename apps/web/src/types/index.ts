@@ -23,9 +23,12 @@ export interface Area {
   id: string;
   plantId: string;
   name: string;
-  code: string;
-  areaOwnerId: string | null;
-  active: boolean;
+  code?: string;
+  ownerId?: string | null;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  areaOwnerId?: string | null;
+  active?: boolean;
   areaOwner?: {
     id: string;
     name: string;
@@ -37,9 +40,10 @@ export interface Equipment {
   id: string;
   areaId: string;
   name: string;
-  tagNo: string;
+  tag?: string;
+  tagNo?: string;
   description?: string | null;
-  active: boolean;
+  active?: boolean;
 }
 
 export interface PermitApproval {

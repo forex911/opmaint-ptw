@@ -112,7 +112,11 @@ export const DashboardPage: React.FC = () => {
         <Card className="p-4 border-l-4 border-l-slate-400">
           <p className="text-xs font-semibold text-[#64748B]">Total Permits</p>
           <p className="text-2xl font-bold font-mono text-[#172033] mt-1">
-            {statsLoading ? <Skeleton className="h-8 w-12" /> : stats?.total || 0}
+            {statsLoading ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              stats?.total ?? Object.values(stats?.byStatus || {}).reduce((a, b) => a + b, 0)
+            )}
           </p>
         </Card>
 

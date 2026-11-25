@@ -420,7 +420,7 @@ export const CreatePermitPage: React.FC = () => {
                   </option>
                   {equipmentData?.equipment.map((eq) => (
                     <option key={eq.id} value={eq.id}>
-                      {eq.name} ({eq.tagNo})
+                      {eq.name} ({eq.tagNo || eq.tag})
                     </option>
                   ))}
                 </select>
