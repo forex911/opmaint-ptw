@@ -565,3 +565,19 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run lint` -> 0 errors.
   - `npm test` -> 264/264 passing (6 shared + 226 api + 32 web) across 20 test files with 0 failures.
   - `npm run build` -> Clean build across all workspaces.
+
+---
+
+## [2026-11-25 20:15] stage-08c / Final Functional & Assignment Compliance Audit
+- **Goal**: Perform comprehensive final functional audit against the original assignment specification, verify all 4 permit types without substitution, execute end-to-end live browser walkthrough with screenshots and video, and produce final audit report `docs/STAGE_08C_FINAL_AUDIT.md`.
+- **Done**:
+  - Verified all 4 required permit types (`HOT_WORK`, `CONFINED_SPACE`, `WORKING_AT_HEIGHT`, `ELECTRICAL_LOTO`) across shared definitions, backend schemas, database check constraints, and frontend UI.
+  - Conducted live browser testing at `http://localhost:3000` via Chrome DevTools automation on host.
+  - Successfully executed complete 16-step lifecycle workflow creating permit `PTW-2026-0019`:
+    - Login (Requester) -> Create 4 types -> Hot Work draft -> Submit -> Area Owner approve -> Safety Officer approve -> Activate -> Suspend -> Resume -> Close -> Verify Closure -> Full Audit Timeline inspection.
+  - Captured 16 visual milestone screenshots in `docs/screenshots/` and 3 full MP4 session recordings.
+  - Produced comprehensive audit report in `docs/STAGE_08C_FINAL_AUDIT.md`.
+- **Verification**:
+  - `npm test` -> 264/264 passing (0 failures).
+  - All 16 live browser verification steps passed 100%.
+  - Zero deployment blockers identified.
