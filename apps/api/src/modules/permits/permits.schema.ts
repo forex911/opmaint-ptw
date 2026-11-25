@@ -11,7 +11,7 @@ export const createPermitSchema = z
     }),
     plantId: z.string().uuid({ message: 'Invalid plant ID format' }),
     areaId: z.string().uuid({ message: 'Invalid area ID format' }),
-    equipmentId: z.string().uuid({ message: 'Invalid equipment ID format' }),
+    equipmentId: z.string().uuid({ message: 'Invalid equipment ID format' }).nullable().optional(),
     contractorTeam: z.string().min(1, { message: 'Contractor team is required' }),
     workDescription: z.string().min(1, { message: 'Work description is required' }),
     plannedStart: z.string().datetime({ message: 'plannedStart must be an ISO 8601 datetime' }),

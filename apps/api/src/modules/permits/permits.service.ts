@@ -106,7 +106,7 @@ export class PermitsService {
         input.workDescription,
         input.plantId,
         input.areaId,
-        input.equipmentId,
+        input.equipmentId || null,
         new Date(input.plannedStart),
         new Date(input.plannedEnd),
         input.hazards || [],

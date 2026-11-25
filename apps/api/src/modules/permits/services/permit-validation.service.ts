@@ -52,7 +52,7 @@ export async function validateLocationConsistency(
 
     if (equipRes.rows[0].area_id !== loc.areaId) {
       throw new AppError(422, 'VALIDATION_ERROR', 'Validation failed', {
-        equipmentId: ['Selected equipment does not belong to the specified area'],
+        equipmentId: ['Select equipment from the chosen area'],
       });
     }
   }

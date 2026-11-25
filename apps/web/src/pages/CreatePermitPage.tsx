@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -92,13 +92,6 @@ export const CreatePermitPage: React.FC = () => {
     enabled: !!formData.areaId,
   });
 
-  // Auto-select first plant when loaded
-  useEffect(() => {
-    if (plantsData?.plants && plantsData.plants.length > 0 && !formData.plantId) {
-      setFormData((prev) => ({ ...prev, plantId: plantsData.plants[0].id }));
-    }
-  }, [plantsData, formData.plantId]);
-
   // When plant changes, reset area and equipment
   const handlePlantChange = (plantId: string) => {
     setFormData((prev) => ({
@@ -145,11 +138,10 @@ export const CreatePermitPage: React.FC = () => {
 
     try {
       // 1. Create permit (creates draft)
-      const res = await api.createPermit({
+      const createPayload: Record<string, unknown> = {
         type: formData.type,
         plantId: formData.plantId,
         areaId: formData.areaId,
-        equipmentId: formData.equipmentId,
         contractorTeam: formData.contractorTeam,
         workDescription: formData.workDescription,
         plannedStart: new Date(formData.plannedStart).toISOString(),
@@ -158,7 +150,13 @@ export const CreatePermitPage: React.FC = () => {
         ppe: formData.ppe,
         precautions: formData.precautions,
         details: formData.details,
-      });
+      };
+
+      if (formData.equipmentId && formData.equipmentId.trim() !== '') {
+        createPayload.equipmentId = formData.equipmentId;
+      }
+
+      const res = await api.createPermit(createPayload);
 
       const permitId = res.permit.id;
 
@@ -359,10 +357,12 @@ export const CreatePermitPage: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-xl border border-slate-200 bg-slate-50/50">
               {/* Plant */}
               <div>
-                <label className="block text-xs font-semibold text-[#172033] mb-1.5 uppercase tracking-wider">
+                <label htmlFor="plant-select" className="block text-xs font-semibold text-[#172033] mb-1.5 uppercase tracking-wider">
                   Plant <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="plant-select"
+                  aria-label="Plant"
                   value={formData.plantId}
                   onChange={(e) => handlePlantChange(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-800"
@@ -378,10 +378,12 @@ export const CreatePermitPage: React.FC = () => {
 
               {/* Area */}
               <div>
-                <label className="block text-xs font-semibold text-[#172033] mb-1.5 uppercase tracking-wider">
+                <label htmlFor="area-select" className="block text-xs font-semibold text-[#172033] mb-1.5 uppercase tracking-wider">
                   Area <span className="text-red-500">*</span>
                 </label>
                 <select
+                  id="area-select"
+                  aria-label="Area"
                   value={formData.areaId}
                   onChange={(e) => handleAreaChange(e.target.value)}
                   disabled={!formData.plantId}
@@ -398,16 +400,24 @@ export const CreatePermitPage: React.FC = () => {
 
               {/* Equipment */}
               <div>
-                <label className="block text-xs font-semibold text-[#172033] mb-1.5 uppercase tracking-wider">
-                  Equipment <span className="text-red-500">*</span>
+                <label htmlFor="equipment-select" className="block text-xs font-semibold text-[#172033] mb-1.5 uppercase tracking-wider">
+                  Equipment <span className="text-slate-400 font-normal normal-case">(optional)</span>
                 </label>
                 <select
+                  id="equipment-select"
+                  aria-label="Equipment"
                   value={formData.equipmentId}
                   onChange={(e) => setFormData({ ...formData, equipmentId: e.target.value })}
-                  disabled={!formData.areaId}
+                  disabled={!formData.areaId || (equipmentData?.equipment && equipmentData.equipment.length === 0)}
                   className="w-full px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-800 disabled:bg-slate-100"
                 >
-                  <option value="">Select Equipment...</option>
+                  <option value="">
+                    {!formData.areaId
+                      ? 'Select Area first...'
+                      : equipmentData?.equipment && equipmentData.equipment.length === 0
+                      ? 'No equipment in this area (optional)'
+                      : 'Select Equipment (optional)...'}
+                  </option>
                   {equipmentData?.equipment.map((eq) => (
                     <option key={eq.id} value={eq.id}>
                       {eq.name} ({eq.tagNo})
