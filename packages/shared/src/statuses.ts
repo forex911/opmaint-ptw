@@ -45,7 +45,7 @@ export const PermitAction = {
   SUSPEND: 'suspend',
   RESUME: 'resume',
   CLOSE: 'close',
-  VERIFY_CLOSURE: 'verify_closure',
+  VERIFY: 'verify',
   CANCEL: 'cancel',
   EXPIRE: 'expire',
 } as const;
@@ -60,7 +60,7 @@ export const ALL_PERMIT_ACTIONS: readonly PermitAction[] = [
   PermitAction.SUSPEND,
   PermitAction.RESUME,
   PermitAction.CLOSE,
-  PermitAction.VERIFY_CLOSURE,
+  PermitAction.VERIFY,
   PermitAction.CANCEL,
   PermitAction.EXPIRE,
 ] as const;
@@ -86,7 +86,7 @@ export const PERMIT_ACTION_LABELS: Record<PermitAction, string> = {
   suspend: 'Suspend',
   resume: 'Resume',
   close: 'Complete Work',
-  verify_closure: 'Verify Closure',
+  verify: 'Verify Closure',
   cancel: 'Cancel',
   expire: 'Expire',
 };
