@@ -14,6 +14,7 @@ import {
   sweepNow,
   ExpirySweeper,
 } from './expiry-sweeper.js';
+import { timingSafeEqualSecret } from '../../internal/internal.middleware.js';
 import { bulkExpireOverduePermits } from '../services/expiry.service.js';
 import { PermitStatus } from '@ptw/shared';
 
@@ -137,6 +138,11 @@ describe('Background Expiry Sweeper & Internal Endpoints', () => {
         message: 'Invalid or missing sweep secret',
       },
     });
+
+    // Verify constant-time SHA-256 string comparison directly
+    expect(timingSafeEqualSecret('super-secret-token-value', 'super-secret-token-value')).toBe(true);
+    expect(timingSafeEqualSecret('super-secret-token-value', 'wrong-secret-token-value')).toBe(false);
+    expect(timingSafeEqualSecret('short', 'much-longer-secret-token')).toBe(false);
   });
 
   // 3. Expiry audit entry with NULL actor ID displayed as System

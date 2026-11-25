@@ -1,20 +1,17 @@
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import rateLimit from 'express-rate-limit';
 import { env } from '../../config/env.js';
+import { AppError } from '../../errors/app-error.js';
 
 /**
- * Constant-time string comparison using crypto.timingSafeEqual.
- * Prevents timing attacks against the sweep secret.
+ * Constant-time string comparison using sha256 hashing + crypto.timingSafeEqual.
+ * Completely eliminates any timing leak including buffer length differences.
  */
 export function timingSafeEqualSecret(provided: string, expected: string): boolean {
-  const bufProvided = Buffer.from(provided, 'utf-8');
-  const bufExpected = Buffer.from(expected, 'utf-8');
-
-  if (bufProvided.length !== bufExpected.length) {
-    return false;
-  }
-
-  return crypto.timingSafeEqual(bufProvided, bufExpected);
+  const hashProvided = crypto.createHash('sha256').update(provided).digest();
+  const hashExpected = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(hashProvided, hashExpected);
 }
 
 /**
@@ -38,3 +35,18 @@ export function requireSweepSecret(req: Request, res: Response, next: NextFuncti
 
   next();
 }
+
+/**
+ * Rate limiter for internal sweep endpoints.
+ * Protects against aggressive sweep triggers (max 30 requests per minute).
+ */
+export const sweepRateLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  limit: 30, // max 30 requests per minute
+  handler: (_req, _res, next) => {
+    return next(AppError.rateLimit('Too many sweep requests. Please wait before triggering another sweep.'));
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test' && !process.env.TEST_SWEEP_RATE_LIMIT,
+});

@@ -1,10 +1,11 @@
 import { Router } from 'express';
-import { requireSweepSecret } from './internal.middleware.js';
+import { requireSweepSecret, sweepRateLimiter } from './internal.middleware.js';
 import { sweepNow } from '../permits/sweeper/expiry-sweeper.js';
 
 export const internalRouter = Router();
 
-// Protect all /internal routes with secret verification
+// Apply rate limiting and secret verification to all /internal routes
+internalRouter.use(sweepRateLimiter);
 internalRouter.use(requireSweepSecret);
 
 /**
