@@ -133,6 +133,19 @@ export const guardWindowDates = (ctx: TransitionContext): GuardResult => {
   return { ok: true };
 };
 
+export const guardSubmitEquipment = (ctx: TransitionContext): GuardResult => {
+  if (!ctx.permit.equipmentId) {
+    return {
+      ok: false,
+      code: 'VALIDATION_ERROR',
+      message: 'Select equipment from the chosen area',
+    };
+  }
+  return { ok: true };
+};
+
+export const guardSubmit = guardSubmitEquipment;
+
 export const guardSubmitDetails = (ctx: TransitionContext): GuardResult => {
   const validation = validatePermitDetails(
     ctx.permit.type,

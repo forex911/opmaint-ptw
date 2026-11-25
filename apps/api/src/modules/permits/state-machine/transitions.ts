@@ -16,6 +16,7 @@ import {
   guardMandatoryComment,
   guardMandatoryCompletionNotes,
   guardWindowDates,
+  guardSubmitEquipment,
   guardSubmitDetails,
   guardActivation,
   guardNotExpired,
@@ -27,7 +28,12 @@ export const TRANSITION_TABLE: readonly TransitionRule[] = [
     from: [PermitStatus.DRAFT],
     to: PermitStatus.PENDING_APPROVAL,
     allowedRoles: [UserRole.REQUESTER, UserRole.SAFETY_OFFICER, UserRole.ADMIN],
-    guards: [guardRequesterOwnership, guardWindowDates, guardSubmitDetails],
+    guards: [
+      guardRequesterOwnership,
+      guardWindowDates,
+      guardSubmitEquipment,
+      guardSubmitDetails,
+    ],
   },
   {
     action: 'approve',
