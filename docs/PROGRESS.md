@@ -581,3 +581,37 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm test` -> 264/264 passing (0 failures).
   - All 16 live browser verification steps passed 100%.
   - Zero deployment blockers identified.
+
+---
+
+## [2026-11-26 11:30] stage-09 / Production Deployment on Vercel, Render & Neon
+- **Goal**: Deploy full stack to production: frontend SPA to Vercel, backend API to Render, and database to Neon serverless PostgreSQL. Wire Vercel reverse proxy for first-party cookie session integrity, run remote database migrations and seeding, and verify end-to-end functionality via automated smoke test suite.
+- **Done**:
+  - Connected cloud Neon PostgreSQL database over SSL (`verify-full`).
+  - Applied all 3 Drizzle schema migrations (`0000_initial_schema.sql`, `0001_permit_type_check.sql`, `0002_permit_equipment_nullable.sql`).
+  - Seeded remote database with 4 demo users (`REQUESTER`, `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN`), 2 plants, 3 areas, 6 equipment, and 11 multi-status permits with full audit history.
+  - Deployed backend API service to Render (`https://opmaint-ptw.onrender.com`).
+    - Configured production dependency resolution for `@types/*` in `apps/api/package.json`.
+    - Added dedicated `build:api` command to root `package.json` to prevent unnecessary web builds on Render.
+  - Deployed frontend SPA to Vercel (`https://cmms-three-dun.vercel.app`).
+    - Resolved TypeScript 5.9 `baseUrl` bundler deprecation in `apps/web/tsconfig.json`.
+    - Configured `@ptw/shared` module resolution for Vercel build pipelines.
+    - Configured transparent reverse proxy rewrites in `vercel.json` routing `/api/*` and `/health` to `https://opmaint-ptw.onrender.com`.
+  - Executed automated post-deployment smoke test suite against both Render API and Vercel proxy.
+    - Verified `/health` returns 200 OK.
+    - Verified all 4 demo users authenticate successfully via `POST /api/auth/login`.
+    - Verified `ptw_token` cookie is delivered as 1st-party `HttpOnly; Secure; SameSite=Lax`.
+    - Verified authenticated session validation via `GET /api/auth/me`.
+    - Verified authenticated permit listing `GET /api/permits` (11 permits).
+    - Verified metrics aggregation `GET /api/permits/stats`.
+    - Verified unauthorized block on `/internal/sweep` (401).
+    - Verified state machine invalid transition guard (409 ILLEGAL_TRANSITION).
+- **Commits**:
+  - `b14cb9d fix(deploy): move @types to dependencies for production npm install, remove deprecated baseUrl in web tsconfig, add build:api`
+  - `179b601 fix(build): target api in root build script for Render and fix web ImportMetaEnv DEV typing`
+  - `d227e3c fix(vercel): route api rewrites to Render backend https://opmaint-ptw.onrender.com`
+- **Verification**:
+  - `node scripts/post-deploy-smoke.js https://opmaint-ptw.onrender.com` -> 9/9 passed (100%).
+  - `node scripts/post-deploy-smoke.js https://cmms-three-dun.vercel.app` -> 9/9 passed (100%).
+  - Zero CORS errors, zero 404 errors, zero cookie drops.
+
