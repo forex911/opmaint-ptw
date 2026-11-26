@@ -646,4 +646,32 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (100% green).
   - `npm run build:web` -> Production build completed cleanly in 11.06s (`dist/assets/index-Q5My7eIz.js`, `dist/assets/index-Ckqr8j25.css`).
 
+---
+
+## [2026-11-26 11:56] feat/ui-modern-split-login / Modern Split-Screen Login Page Redesign
+- **Goal**: Implement modern split-screen design for `LoginPage.tsx` modeled directly after the user's reference mockup:
+  - Dark visual hero side featuring bold typography ("Control your permits"), concentric safety sonar radar rings, and a realistic industrial handheld device mockup with live telemetry bar charts and permit cards.
+  - Crisp white form card with curved corners, OPMAINT brand header with certified access pill, pill-shaped inputs with icons, gradient action pill button with arrow indicator, and reviewer quick demo fill accounts.
+- **Done**:
+  - Rewrote `apps/web/src/pages/LoginPage.tsx`:
+    - Responsive split-screen container (`max-w-6xl rounded-3xl lg:rounded-[2.5rem]`).
+    - Left Hero panel (`hidden lg:flex lg:col-span-6 xl:col-span-7 bg-gradient-to-br from-[#0B1E17] via-[#0E231D] to-[#081712]`):
+      - Concentric sonar rings animation backdrop.
+      - Hero title: "Control your permits" with emerald highlight.
+      - Interactive handheld terminal mockup displaying live telemetry bars and sample active permits.
+      - Compliance badges: OSHA 1910 & ISO 45001.
+    - Right Form panel (`col-span-1 lg:col-span-6 xl:col-span-5 bg-white`):
+      - Brand logo: shield icon + "OPMAINT CMMS / Permit to Work Safety System".
+      - "Certified Access" green pulse badge.
+      - Large typography "Sign In".
+      - Pill inputs with `Mail` and `Lock` icons and eye toggle.
+      - "Forgot password?" helper link.
+      - Full-width rounded gradient pill button (`bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600`) with hover arrow animation.
+      - Reviewer demo quick-fill accounts preserved for all 4 roles.
+- **Verification**:
+  - `npm run typecheck` -> 0 errors.
+  - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (including both `LoginPage.test.tsx` tests).
+  - `npm run build:web` -> Clean build in 6.74s.
+
+
 
