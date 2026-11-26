@@ -19,7 +19,7 @@ describe('LoginPage Component', () => {
     expect(screen.getByLabelText(/Password/i)).toBeInTheDocument();
     expect(screen.getByText(/Reviewer Quick Demo Accounts/i)).toBeInTheDocument();
     expect(screen.getByText('Requester')).toBeInTheDocument();
-    expect(screen.getByText('Area Owner')).toBeInTheDocument();
+    expect(screen.getAllByText(/Area Owner/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Safety Officer')).toBeInTheDocument();
     expect(screen.getByText('System Admin')).toBeInTheDocument();
   });

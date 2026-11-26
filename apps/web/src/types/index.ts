@@ -51,6 +51,8 @@ export interface PermitApproval {
   permitId: string;
   requiredRole: UserRole;
   requiredUserId?: string | null;
+  requiredUserName?: string | null;
+  requiredUserEmail?: string | null;
   assignedUserId?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   decidedBy?: string | null;

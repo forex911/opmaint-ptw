@@ -357,49 +357,62 @@ export const LoginPage: React.FC = () => {
               <span>Reviewer Quick Demo Accounts (Click to Fill):</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 text-xs">
+            <div className="grid grid-cols-2 gap-2 text-xs">
               <button
                 type="button"
                 onClick={() => fillDemo('requester@cmms.local')}
-                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+                className="p-2.5 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
               >
                 <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Requester</span>
-                <span className="block text-[11px] text-slate-500 font-mono truncate">
+                <span className="block text-[10px] text-slate-500 font-mono truncate">
                   requester@cmms.local
                 </span>
               </button>
 
               <button
                 type="button"
-                onClick={() => fillDemo('area.owner@cmms.local')}
-                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
-              >
-                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Area Owner</span>
-                <span className="block text-[11px] text-slate-500 font-mono truncate">
-                  area.owner@cmms.local
-                </span>
-              </button>
-
-              <button
-                type="button"
                 onClick={() => fillDemo('safety.officer@cmms.local')}
-                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+                className="p-2.5 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
               >
                 <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Safety Officer</span>
-                <span className="block text-[11px] text-slate-500 font-mono truncate">
+                <span className="block text-[10px] text-slate-500 font-mono truncate">
                   safety.officer@cmms.local
                 </span>
               </button>
 
               <button
                 type="button"
-                onClick={() => fillDemo('admin@cmms.local')}
-                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+                onClick={() => fillDemo('area.owner@cmms.local')}
+                className="p-2.5 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
               >
-                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">System Admin</span>
-                <span className="block text-[11px] text-slate-500 font-mono truncate">
-                  admin@cmms.local
+                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Area Owner (Suresh)</span>
+                <span className="block text-[10px] text-slate-500 font-mono truncate">
+                  area.owner@cmms.local
                 </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemo('area.owner2@cmms.local')}
+                className="p-2.5 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+              >
+                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Area Owner (Karthik)</span>
+                <span className="block text-[10px] text-slate-500 font-mono truncate">
+                  area.owner2@cmms.local
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemo('admin@cmms.local')}
+                className="col-span-2 p-2.5 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="block font-bold text-slate-800 group-hover:text-emerald-950">System Admin</span>
+                  <span className="block text-[10px] text-slate-500 font-mono">
+                    admin@cmms.local
+                  </span>
+                </div>
               </button>
             </div>
 

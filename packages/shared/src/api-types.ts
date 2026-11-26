@@ -168,6 +168,8 @@ export interface PermitApprovalDto {
   permitId: string;
   requiredRole: UserRole;
   requiredUserId: string | null;
+  requiredUserName?: string | null;
+  requiredUserEmail?: string | null;
   status: ApprovalStatus;
   decidedBy: string | null;
   deciderName?: string | null;
@@ -346,6 +348,8 @@ export const permitApprovalDtoSchema = z.object({
   permitId: z.string().uuid(),
   requiredRole: z.enum(['REQUESTER', 'AREA_OWNER', 'SAFETY_OFFICER', 'ADMIN'] as const),
   requiredUserId: z.string().uuid().nullable().optional(),
+  requiredUserName: z.string().nullable().optional(),
+  requiredUserEmail: z.string().nullable().optional(),
   status: z.enum(['PENDING', 'APPROVED', 'REJECTED'] as const),
   decidedBy: z.string().uuid().nullable().optional(),
   deciderName: z.string().nullable().optional(),

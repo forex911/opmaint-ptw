@@ -464,7 +464,22 @@ export const PermitDetailPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-3 font-medium text-slate-800">
-                        {appr.deciderName || appr.approver?.name || (appr.status === 'PENDING' ? 'Awaiting assignment' : 'System')}
+                        {appr.deciderName || appr.approver?.name ? (
+                          <span>{appr.deciderName || appr.approver?.name}</span>
+                        ) : appr.status === 'PENDING' ? (
+                          appr.requiredUserName ? (
+                            <span className="text-slate-600">
+                              Assigned: <strong className="text-slate-800">{appr.requiredUserName}</strong>
+                              {appr.requiredUserEmail && (
+                                <span className="block text-[11px] text-slate-400 font-mono">{appr.requiredUserEmail}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">Any {appr.requiredRole.replace(/_/g, ' ')}</span>
+                          )
+                        ) : (
+                          'System'
+                        )}
                       </td>
                       <td className="px-6 py-3 font-mono text-slate-500">
                         {(appr.decidedAt || appr.approvedAt) ? new Date((appr.decidedAt || appr.approvedAt)!).toLocaleString() : '—'}

@@ -385,9 +385,12 @@ export class PermitsService {
       `SELECT 
          pa.*,
          u.name AS decider_name,
-         u.email AS decider_email
+         u.email AS decider_email,
+         ru.name AS required_user_name,
+         ru.email AS required_user_email
        FROM permit_approvals pa
        LEFT JOIN users u ON u.id = pa.decided_by
+       LEFT JOIN users ru ON ru.id = pa.required_user_id
        WHERE pa.permit_id = $1
        ORDER BY pa.id ASC`,
       [id]
@@ -440,6 +443,8 @@ export class PermitsService {
         permitId: r.permit_id,
         requiredRole: r.required_role,
         requiredUserId: r.required_user_id,
+        requiredUserName: r.required_user_name,
+        requiredUserEmail: r.required_user_email,
         status: r.status,
         decidedBy: r.decided_by,
         deciderName: r.decider_name,
