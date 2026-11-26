@@ -11,6 +11,7 @@ import {
   Lock,
   Mail,
   Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
 import { Logo } from '../components/ui/Logo.js';
@@ -55,13 +56,15 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#081712] overflow-x-hidden selection:bg-emerald-500 selection:text-white font-sans">
-      
+
       {/* ===================================================================== */}
       {/* LEFT COLUMN: Full-Bleed Dark Forest Hero, Mockup & Sonar Rings        */}
       {/* ===================================================================== */}
       <div className="w-full lg:w-[52%] xl:w-[55%] min-h-[580px] lg:min-h-screen lg:h-screen p-8 sm:p-12 lg:p-14 xl:p-16 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[#0B1E17] via-[#0E231D] to-[#06140F] shrink-0">
-        
-        {/* Background Concentric Radar Rings */}
+
+        {/* Background Industrial Blueprint Grid & Radar Rings */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98112_1px,transparent_1px),linear-gradient(to_bottom,#10b98112_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_80%_70%_at_40%_50%,#000_60%,transparent_100%)] pointer-events-none" />
+
         <div className="absolute -left-20 -bottom-20 w-[680px] h-[680px] pointer-events-none opacity-20">
           <div className="absolute inset-0 rounded-full border border-emerald-400" />
           <div className="absolute inset-16 rounded-full border border-emerald-400" />
@@ -84,82 +87,118 @@ export const LoginPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Main Hero Headline & Live Terminal Mockup */}
-        <div className="relative z-10 my-auto py-6 sm:py-8">
-          <h1 className="text-4xl sm:text-6xl xl:text-7xl font-extrabold tracking-tight text-white leading-[1.08] mb-8">
+        {/* Main Hero Headline, Rectangular Mockup & Grid Design Under Mockup */}
+        <div className="relative z-10 my-auto py-5 sm:py-6">
+          <h1 className="text-4xl sm:text-5xl xl:text-6xl font-extrabold tracking-tight text-white leading-[1.08] mb-6">
             Control <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200">
               your permits
             </span>
           </h1>
 
-          {/* Handheld Industrial Terminal Mockup */}
-          <div className="relative max-w-[340px] rounded-[2.5rem] bg-slate-900/90 p-3 shadow-2xl ring-1 ring-white/15 backdrop-blur-md">
-            <div className="bg-[#091712] rounded-[2.1rem] p-4 border border-emerald-500/25 overflow-hidden">
-              
+          {/* Rectangular Industrial Telemetry Console Mockup */}
+          <div className="relative w-full max-w-[480px] rounded-2xl bg-slate-900/90 p-3 shadow-2xl ring-1 ring-white/15 backdrop-blur-md">
+            <div className="bg-[#091712] rounded-xl p-4 border border-emerald-500/25 overflow-hidden">
+
               {/* Device Header */}
               <div className="flex items-center justify-between pb-3 border-b border-emerald-800/40 text-[11px]">
-                <div className="flex items-center gap-1.5 text-emerald-400">
-                  <Logo size="sm" className="w-4 h-4 rounded-md" />
-                  <span className="font-bold text-white tracking-wider text-[11px]">PTW LIVE</span>
+                <div className="flex items-center gap-2">
+                  <Logo size="sm" className="w-4 h-4 rounded-xs" />
+                  <span className="font-bold text-white tracking-wider text-xs">PTW TELEMETRY CONSOLE</span>
                 </div>
-                <span className="inline-flex items-center gap-1 text-[9px] text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-700/60 font-mono font-semibold">
+                <span className="inline-flex items-center gap-1.5 text-[10px] text-emerald-300 bg-emerald-950/90 px-2.5 py-0.5 rounded-full border border-emerald-600/50 font-mono font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                   ONLINE
                 </span>
               </div>
 
               {/* Metric Card inside Mockup */}
-              <div className="my-3 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/90 to-slate-900 border border-emerald-500/20">
-                <span className="text-[10px] uppercase font-semibold text-emerald-400/80 tracking-wider block">
-                  Active Permits In Progress
-                </span>
-                <div className="flex items-baseline justify-between mt-1">
-                  <span className="text-2xl font-bold font-mono text-white tracking-tight">11 Live</span>
-                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1">
+              <div className="my-3 p-3.5 rounded-xl bg-gradient-to-br from-emerald-950/90 via-[#0B211A] to-slate-900 border border-emerald-500/20">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] uppercase font-bold text-emerald-400/90 tracking-wider">
+                    Active Permits In Progress
+                  </span>
+                  <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-1 font-mono">
                     <Activity className="w-3 h-3 text-emerald-400 animate-pulse" />
                     100% Green
                   </span>
                 </div>
 
+                <div className="flex items-baseline justify-between mt-1">
+                  <span className="text-2xl font-extrabold font-mono text-white tracking-tight">11 Live</span>
+                  <span className="text-[11px] text-emerald-300/70 font-medium hidden sm:inline">4 Hot Work • 3 Vessel • 4 Electrical</span>
+                </div>
+
                 {/* Live Telemetry Indicator Bars */}
-                <div className="grid grid-cols-6 gap-1.5 items-end h-9 mt-3 pt-2 border-t border-emerald-800/30">
-                  <div className="bg-emerald-500/40 rounded-t h-[40%]" />
-                  <div className="bg-emerald-500/60 rounded-t h-[65%]" />
-                  <div className="bg-emerald-500/80 rounded-t h-[85%]" />
-                  <div className="bg-emerald-400 rounded-t h-[100%]" />
-                  <div className="bg-emerald-500/70 rounded-t h-[60%]" />
-                  <div className="bg-emerald-500/50 rounded-t h-[75%]" />
+                <div className="grid grid-cols-8 gap-1.5 items-end h-8 mt-3 pt-2 border-t border-emerald-800/30">
+                  <div className="bg-emerald-500/40 rounded-xs h-[40%]" />
+                  <div className="bg-emerald-500/60 rounded-xs h-[65%]" />
+                  <div className="bg-emerald-500/80 rounded-xs h-[85%]" />
+                  <div className="bg-emerald-400 rounded-xs h-[100%]" />
+                  <div className="bg-emerald-500/70 rounded-xs h-[60%]" />
+                  <div className="bg-emerald-500/85 rounded-xs h-[90%]" />
+                  <div className="bg-emerald-500/50 rounded-xs h-[50%]" />
+                  <div className="bg-emerald-400/90 rounded-xs h-[75%]" />
                 </div>
               </div>
 
-              {/* Live Permits Mini Cards */}
-              <div className="space-y-1.5">
-                <div className="bg-emerald-950/50 p-2.5 rounded-xl border border-emerald-600/30 text-[10px]">
+              {/* Live Permits Mini Cards - Horizontal 2-col Grid inside Mockup */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="bg-emerald-950/60 p-2.5 rounded-lg border border-emerald-600/30 text-[10px]">
                   <div className="flex items-center justify-between">
                     <span className="font-mono font-bold text-white">PTW-2026-0019</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-900/80 text-emerald-300 font-bold border border-emerald-600/40">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-900/90 text-emerald-300 font-bold border border-emerald-500/50">
                       ACTIVE
                     </span>
                   </div>
-                  <p className="text-emerald-100/70 truncate text-[10px] mt-0.5">
+                  <p className="text-emerald-100/80 truncate text-[10px] mt-1 font-medium">
                     Boiler Flare Header Hot Work
                   </p>
                 </div>
 
-                <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 text-[10px]">
+                <div className="bg-slate-900/70 p-2.5 rounded-lg border border-slate-700/60 text-[10px]">
                   <div className="flex items-center justify-between">
-                    <span className="font-mono font-bold text-slate-300">PTW-2026-0018</span>
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/80 text-amber-300 font-bold border border-amber-600/40">
+                    <span className="font-mono font-bold text-slate-200">PTW-2026-0018</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-950/90 text-amber-300 font-bold border border-amber-600/50">
                       PENDING
                     </span>
                   </div>
-                  <p className="text-slate-400 truncate text-[10px] mt-0.5">
+                  <p className="text-slate-300/80 truncate text-[10px] mt-1 font-medium">
                     Nitrogen Reactor Vessel Entry
                   </p>
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          {/* Grid Layout Design Directly Under That Mockup */}
+          <div className="grid grid-cols-3 gap-2.5 w-full max-w-[480px] mt-3.5">
+            <div className="p-3 rounded-xl bg-gradient-to-b from-emerald-950/60 to-slate-900/80 border border-emerald-500/20 backdrop-blur-sm shadow-md">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">OSHA 1910</span>
+              </div>
+              <p className="text-xs font-bold text-white mt-1">Audit-Ready</p>
+              <p className="text-[10px] text-emerald-400/70 font-mono mt-0.5">Immutable Log</p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-gradient-to-b from-emerald-950/60 to-slate-900/80 border border-emerald-500/20 backdrop-blur-sm shadow-md">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <Activity className="w-3.5 h-3.5 animate-pulse shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">Live SLA</span>
+              </div>
+              <p className="text-xs font-bold text-white mt-1">&lt; 15m Approval</p>
+              <p className="text-[10px] text-emerald-400/70 font-mono mt-0.5">Zero Bottleneck</p>
+            </div>
+
+            <div className="p-3 rounded-xl bg-gradient-to-b from-emerald-950/60 to-slate-900/80 border border-emerald-500/20 backdrop-blur-sm shadow-md">
+              <div className="flex items-center gap-1.5 text-emerald-400">
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300">LOTO Sync</span>
+              </div>
+              <p className="text-xs font-bold text-white mt-1">Lockout Verified</p>
+              <p className="text-[10px] text-emerald-400/70 font-mono mt-0.5">Energy Isolated</p>
             </div>
           </div>
         </div>
@@ -180,7 +219,7 @@ export const LoginPage: React.FC = () => {
       {/* RIGHT COLUMN: Full-Height Clean White Form Section                    */}
       {/* ===================================================================== */}
       <div className="w-full lg:w-[48%] xl:w-[45%] min-h-screen lg:h-screen bg-white rounded-t-[2.5rem] lg:rounded-t-none lg:rounded-l-[3.5rem] shadow-[-25px_0_60px_rgba(0,0,0,0.35)] flex flex-col justify-between p-8 sm:p-12 lg:p-14 xl:p-16 overflow-y-auto z-10 relative">
-        
+
         {/* Top Header: Brand Logo & Portal Status */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
@@ -318,7 +357,7 @@ export const LoginPage: React.FC = () => {
                 <UserCheck className="w-4 h-4 text-[#059669]" />
                 <span>Reviewer Quick Demo Accounts (Click to Fill):</span>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <button
                   type="button"

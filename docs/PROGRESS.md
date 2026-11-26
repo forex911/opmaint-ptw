@@ -693,6 +693,28 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (100% green).
   - `npm run build:web` -> Clean production build in 10.65s.
 
+---
+
+## [2026-11-26 12:30] feat/ui-rectangular-mockup-and-grid / Rectangular Terminal Mockup & Architectural Grid Design
+- **Goal**: Make the industrial device mockup rectangular and add an architectural grid layout design directly underneath the mockup.
+- **Done**:
+  - In `apps/web/src/pages/LoginPage.tsx`:
+    - Updated device mockup from squarish pill (`max-w-[340px] rounded-[2.5rem]`) to a sleek, wide rectangular console terminal (`w-full max-w-[480px] rounded-2xl` with `rounded-xl` inner display).
+    - Expanded terminal layout:
+      - Header: `<Logo size="sm" />`, `PTW TELEMETRY CONSOLE`, online telemetry pill.
+      - Metric card: `11 Live` active permits counter with 8 live telemetry indicator bars and permit category distribution tag.
+      - Permits list: Refactored into a responsive 2-column horizontal grid (`grid grid-cols-1 sm:grid-cols-2 gap-2`) with active and pending status badges.
+    - Added a modern 3-column feature grid layout directly underneath the mockup (`grid grid-cols-3 gap-2.5 w-full max-w-[480px] mt-3.5`):
+      - `OSHA 1910` / `Audit-Ready` / `Immutable Log`
+      - `Live SLA` / `< 15m Approval` / `Zero Bottleneck`
+      - `LOTO Sync` / `Lockout Verified` / `Energy Isolated`
+    - Added high-tech industrial engineering blueprint grid backdrop (`[linear-gradient...]` with radial alpha mask).
+- **Verification**:
+  - `npm run typecheck` -> 0 errors across `@ptw/shared`, `@ptw/api`, and `@ptw/web`.
+  - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (100% green).
+  - `npm run build:web` -> Clean production build in 10.74s.
+
+
 
 
 
