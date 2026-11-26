@@ -58,7 +58,7 @@ export const ReferenceDataPage: React.FC = () => {
           onClick={() => setActiveTab('plants')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'plants'
-              ? 'border-[#2563EB] text-[#2563EB]'
+              ? 'border-[#059669] text-[#059669]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -70,7 +70,7 @@ export const ReferenceDataPage: React.FC = () => {
           onClick={() => setActiveTab('areas')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'areas'
-              ? 'border-[#2563EB] text-[#2563EB]'
+              ? 'border-[#059669] text-[#059669]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
@@ -82,7 +82,7 @@ export const ReferenceDataPage: React.FC = () => {
           onClick={() => setActiveTab('equipment')}
           className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${
             activeTab === 'equipment'
-              ? 'border-[#2563EB] text-[#2563EB]'
+              ? 'border-[#059669] text-[#059669]'
               : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >

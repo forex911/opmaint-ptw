@@ -290,7 +290,7 @@ export const PermitDetailPage: React.FC = () => {
         {/* Job Summary */}
         <Card className="p-5 space-y-3">
           <h3 className="text-xs font-bold text-[#172033] uppercase tracking-wider flex items-center gap-1.5">
-            <FileText className="w-4 h-4 text-[#2563EB]" />
+            <FileText className="w-4 h-4 text-[#059669]" />
             <span>Job Summary & Personnel</span>
           </h3>
           <div className="space-y-2 text-xs">
@@ -421,7 +421,7 @@ export const PermitDetailPage: React.FC = () => {
       <Card className="overflow-hidden">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#2563EB]" />
+            <ShieldCheck className="w-4 h-4 text-[#059669]" />
             <CardTitle>Dual-Authorization Approval Trail</CardTitle>
           </div>
         </CardHeader>
@@ -531,7 +531,7 @@ export const PermitDetailPage: React.FC = () => {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <History className="w-4 h-4 text-[#2563EB]" />
+            <History className="w-4 h-4 text-[#059669]" />
             <CardTitle>Immutable Safety Audit Timeline</CardTitle>
           </div>
         </CardHeader>
@@ -560,7 +560,7 @@ export const PermitDetailPage: React.FC = () => {
               return (
                 <div key={entry.id} className="relative group">
                   {/* Dot */}
-                  <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-[#2563EB] ring-4 ring-white border border-[#2563EB]" />
+                  <div className="absolute -left-6 top-1 w-2.5 h-2.5 rounded-full bg-[#059669] ring-4 ring-white border border-[#059669]" />
 
                   <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs space-y-1.5">
                     <div className="flex items-center justify-between">

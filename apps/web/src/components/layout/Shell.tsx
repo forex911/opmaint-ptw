@@ -63,17 +63,17 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
   };
 
   return (
-    <div className="min-h-screen flex bg-[#F5F7FA]">
-      {/* Sidebar Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-[#14243A] text-white shrink-0 border-r border-slate-800">
+    <div className="h-screen w-full flex bg-[#F5F7FA] overflow-hidden">
+      {/* Sidebar Desktop - Fixed in place, never scrolls with the page */}
+      <aside className="hidden md:flex flex-col w-64 h-screen bg-[#0E231D] text-white shrink-0 border-r border-[#183A30]">
         {/* Brand */}
-        <div className="h-16 flex items-center px-6 border-b border-slate-800/80 gap-3">
-          <div className="p-2 rounded-lg bg-[#2563EB] text-white">
+        <div className="h-16 flex items-center px-6 border-b border-[#183A30] gap-3 shrink-0">
+          <div className="p-2 rounded-lg bg-[#059669] text-white shadow-sm">
             <Shield className="w-5 h-5" />
           </div>
           <div>
             <span className="font-bold tracking-tight text-white text-base">OPMAINT</span>
-            <span className="block text-[10px] tracking-wider text-slate-400 font-semibold uppercase">
+            <span className="block text-[10px] tracking-wider text-emerald-200/60 font-semibold uppercase">
               Permit to Work
             </span>
           </div>
@@ -98,8 +98,8 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                   to={item.path}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                     active
-                      ? 'bg-[#2563EB] text-white shadow-sm'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                      ? 'bg-[#059669] text-white shadow-sm'
+                      : 'text-emerald-100/70 hover:text-white hover:bg-[#183A30]/60'
                   }`}
                 >
                   {item.icon}
@@ -110,10 +110,10 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         </nav>
 
         {/* User Card & Logout */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-900/40">
+        <div className="p-4 border-t border-[#183A30] bg-[#081712] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-200 text-xs font-bold shrink-0">
+              <div className="w-8 h-8 rounded-full bg-[#183A30] flex items-center justify-center text-emerald-200 text-xs font-bold shrink-0">
                 {user?.name ? user.name[0]?.toUpperCase() : 'U'}
               </div>
               <div className="min-w-0">
@@ -130,7 +130,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             <button
               onClick={() => logout()}
               title="Logout"
-              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-[#183A30] transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -145,17 +145,17 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
             className="fixed inset-0 bg-slate-900/60"
             onClick={() => setMobileMenuOpen(false)}
           />
-          <div className="relative flex flex-col w-64 bg-[#14243A] text-white p-4">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+          <div className="relative flex flex-col w-64 bg-[#0E231D] text-white p-4 border-r border-[#183A30]">
+            <div className="flex items-center justify-between pb-4 border-b border-[#183A30]">
               <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#2563EB]" />
+                <Shield className="w-5 h-5 text-[#059669]" />
                 <span className="font-bold text-white">OPMAINT PTW</span>
               </div>
               <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 p-1">
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <nav className="flex-1 py-4 space-y-1">
+            <nav className="flex-1 py-4 space-y-1 overflow-y-auto">
               {navItems
                 .filter((item) => item.visible)
                 .map((item) => (
@@ -163,17 +163,17 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
                     key={item.label}
                     to={item.path}
                     onClick={() => setMobileMenuOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-emerald-100/70 hover:text-white hover:bg-[#183A30]"
                   >
                     {item.icon}
                     <span>{item.label}</span>
                   </Link>
                 ))}
             </nav>
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+            <div className="pt-4 border-t border-[#183A30] flex items-center justify-between">
               <div className="text-xs">
                 <p className="font-semibold text-white">{user?.name}</p>
-                <p className="text-slate-400">{user?.role}</p>
+                <p className="text-emerald-300/80">{user?.role}</p>
               </div>
               <button
                 onClick={() => logout()}
@@ -186,10 +186,10 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
         </div>
       )}
 
-      {/* Main Container */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main Container - Only this scrolls */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-[#E2E8F0] px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+        <header className="h-16 bg-white border-b border-[#E2E8F0] px-4 md:px-8 flex items-center justify-between sticky top-0 z-30 shadow-xs shrink-0">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -217,7 +217,7 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               </Button>
             )}
             <div className="hidden sm:flex items-center gap-2 pl-3 border-l border-slate-200">
-              <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 text-xs font-bold">
+              <div className="w-7 h-7 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-700 text-xs font-bold">
                 <User className="w-4 h-4" />
               </div>
               <span className="text-xs font-semibold text-[#172033]">{user?.name}</span>

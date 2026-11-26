@@ -5,14 +5,21 @@ export default {
     extend: {
       colors: {
         navy: {
-          900: '#14243A',
-          800: '#1E344F',
-          700: '#2A4365',
+          900: '#0E231D',
+          800: '#132B23',
+          700: '#183A30',
+        },
+        forest: {
+          950: '#081712',
+          900: '#0E231D',
+          800: '#132B23',
+          700: '#183A30',
+          600: '#235345',
         },
         primary: {
-          DEFAULT: '#2563EB',
-          hover: '#1D4ED8',
-          light: '#EFF6FF',
+          DEFAULT: '#059669',
+          hover: '#047857',
+          light: '#ECFDF5',
         },
         surface: '#FFFFFF',
         page: '#F5F7FA',

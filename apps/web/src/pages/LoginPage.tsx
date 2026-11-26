@@ -48,8 +48,8 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Brand Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex p-3 rounded-xl bg-[#14243A] text-white shadow-md mb-3">
-            <Shield className="w-8 h-8 text-[#2563EB]" />
+          <div className="inline-flex p-3 rounded-xl bg-[#0E231D] text-white shadow-md mb-3">
+            <Shield className="w-8 h-8 text-[#059669]" />
           </div>
           <h1 className="text-2xl font-bold text-[#172033] tracking-tight">OPMAINT CMMS</h1>
           <p className="text-xs font-semibold text-[#64748B] tracking-wider uppercase mt-1">
@@ -119,7 +119,7 @@ export const LoginPage: React.FC = () => {
           {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS === 'true') && (
             <div className="mt-8 pt-6 border-t border-slate-100">
               <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 mb-3">
-                <UserCheck className="w-4 h-4 text-[#2563EB]" />
+                <UserCheck className="w-4 h-4 text-[#059669]" />
                 <span>Reviewer Quick Demo Accounts (Click to Fill):</span>
               </div>
               <div className="grid grid-cols-2 gap-2 text-xs">

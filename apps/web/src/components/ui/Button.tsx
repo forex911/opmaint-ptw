@@ -22,11 +22,11 @@ export const Button: React.FC<ButtonProps> = ({
 
   const variantClasses = {
     primary:
-      'bg-[#2563EB] text-white hover:bg-[#1D4ED8] focus:ring-[#2563EB] shadow-sm',
+      'bg-[#059669] text-white hover:bg-[#047857] focus:ring-[#059669] shadow-sm',
     secondary:
-      'bg-[#1E344F] text-white hover:bg-[#14243A] focus:ring-[#1E344F]',
+      'bg-[#132B23] text-white hover:bg-[#0E231D] focus:ring-[#132B23]',
     outline:
-      'border border-[#E2E8F0] bg-white text-[#172033] hover:bg-[#F5F7FA] focus:ring-[#2563EB]',
+      'border border-[#E2E8F0] bg-white text-[#172033] hover:bg-[#F5F7FA] focus:ring-[#059669]',
     destructive:
       'bg-[#DC2626] text-white hover:bg-[#B91C1C] focus:ring-[#DC2626]',
     ghost:

@@ -185,7 +185,7 @@ export const DashboardPage: React.FC = () => {
           </div>
           <Link
             to="/permits?status=ACTIVE"
-            className="text-xs font-semibold text-[#2563EB] hover:underline flex items-center gap-1"
+            className="text-xs font-semibold text-[#059669] hover:underline flex items-center gap-1"
           >
             <span>View All Active ({stats?.activeNow || 0})</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -210,7 +210,7 @@ export const DashboardPage: React.FC = () => {
               <Card
                 key={permit.id}
                 onClick={() => navigate(`/permits/${permit.id}`)}
-                className="cursor-pointer hover:border-[#2563EB] transition-all p-5 flex flex-col justify-between"
+                className="cursor-pointer hover:border-[#059669] transition-all p-5 flex flex-col justify-between"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-2">
@@ -232,7 +232,7 @@ export const DashboardPage: React.FC = () => {
 
                 <div className="pt-3 border-t border-slate-100 text-xs text-[#64748B] flex items-center justify-between">
                   <span>Team: {permit.contractorTeam}</span>
-                  <span className="font-medium text-[#2563EB]">View Details →</span>
+                  <span className="font-medium text-[#059669]">View Details →</span>
                 </div>
               </Card>
             ))}
@@ -251,7 +251,7 @@ export const DashboardPage: React.FC = () => {
             </div>
             <Link
               to="/permits?pendingMyApproval=true"
-              className="text-xs font-semibold text-[#2563EB] hover:underline"
+              className="text-xs font-semibold text-[#059669] hover:underline"
             >
               View All
             </Link>
@@ -300,10 +300,10 @@ export const DashboardPage: React.FC = () => {
         <Card className="flex flex-col">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[#2563EB]" />
+              <FileText className="w-4 h-4 text-[#059669]" />
               <CardTitle>Recent Activity Stream</CardTitle>
             </div>
-            <Link to="/permits" className="text-xs font-semibold text-[#2563EB] hover:underline">
+            <Link to="/permits" className="text-xs font-semibold text-[#059669] hover:underline">
               View All Permits
             </Link>
           </CardHeader>

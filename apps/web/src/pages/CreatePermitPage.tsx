@@ -245,7 +245,7 @@ export const CreatePermitPage: React.FC = () => {
               onClick={() => setCurrentStep(s.num)}
               className={`p-2.5 rounded-lg border text-center cursor-pointer transition-colors ${
                 currentStep === s.num
-                  ? 'bg-[#14243A] text-white border-[#14243A]'
+                  ? 'bg-[#0E231D] text-white border-[#0E231D]'
                   : currentStep > s.num
                   ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
                   : 'bg-white text-slate-500 border-slate-200'
@@ -299,7 +299,7 @@ export const CreatePermitPage: React.FC = () => {
                   onClick={() => setFormData({ ...formData, type: card.code })}
                   className={`p-5 rounded-xl border-2 cursor-pointer transition-all ${card.bg} ${
                     selected
-                      ? 'border-[#2563EB] bg-blue-50/20 shadow-sm'
+                      ? 'border-[#059669] bg-emerald-50/20 shadow-sm'
                       : 'border-slate-200 bg-white hover:border-slate-300'
                   }`}
                 >
@@ -308,7 +308,7 @@ export const CreatePermitPage: React.FC = () => {
                       {card.icon}
                     </div>
                     {selected && (
-                      <span className="p-1 rounded-full bg-[#2563EB] text-white">
+                      <span className="p-1 rounded-full bg-[#059669] text-white">
                         <Check className="w-3.5 h-3.5" />
                       </span>
                     )}
@@ -507,7 +507,7 @@ export const CreatePermitPage: React.FC = () => {
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    <input type="checkbox" checked={checked} readOnly className="rounded text-[#2563EB]" />
+                    <input type="checkbox" checked={checked} readOnly className="rounded text-[#059669] focus:ring-[#059669]" />
                     <span>{hazard}</span>
                   </div>
                 );
@@ -529,11 +529,11 @@ export const CreatePermitPage: React.FC = () => {
                     onClick={() => toggleArrayItem('ppe', ppe)}
                     className={`flex items-center gap-2 p-2.5 rounded-lg border text-xs cursor-pointer select-none transition-colors ${
                       checked
-                        ? 'bg-blue-50 text-blue-900 border-blue-300'
+                        ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    <input type="checkbox" checked={checked} readOnly className="rounded text-[#2563EB]" />
+                    <input type="checkbox" checked={checked} readOnly className="rounded text-[#059669] focus:ring-[#059669]" />
                     <span>{ppe}</span>
                   </div>
                 );
@@ -559,7 +559,7 @@ export const CreatePermitPage: React.FC = () => {
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                     }`}
                   >
-                    <input type="checkbox" checked={checked} readOnly className="rounded text-[#2563EB]" />
+                    <input type="checkbox" checked={checked} readOnly className="rounded text-[#059669] focus:ring-[#059669]" />
                     <span>{precaution}</span>
                   </div>
                 );
@@ -666,7 +666,7 @@ export const CreatePermitPage: React.FC = () => {
                 size="md"
                 onClick={() => handleSave(true)}
                 isLoading={isSubmitting}
-                className="flex-1 sm:flex-initial gap-2 bg-[#2563EB] hover:bg-[#1D4ED8]"
+                className="flex-1 sm:flex-initial gap-2 bg-[#059669] hover:bg-[#047857]"
               >
                 <Send className="w-4 h-4" />
                 <span>Submit for Approval</span>

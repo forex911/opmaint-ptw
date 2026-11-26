@@ -114,7 +114,7 @@ export const PermitsListPage: React.FC = () => {
               placeholder="Search by permit # (e.g. PTW-2026-0001) or description..."
               value={search}
               onChange={(e) => updateFilter('search', e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+              className="w-full pl-9 pr-3 py-2 text-xs border border-[#E2E8F0] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#059669]/20 focus:border-[#059669]"
             />
           </div>
 
@@ -122,7 +122,7 @@ export const PermitsListPage: React.FC = () => {
           <select
             value={type}
             onChange={(e) => updateFilter('type', e.target.value)}
-            className="px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+            className="px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#059669]/20"
           >
             <option value="">All Permit Types</option>
             {ALL_PERMIT_TYPE_CODES.map((t) => (
@@ -136,7 +136,7 @@ export const PermitsListPage: React.FC = () => {
           <select
             value={areaId}
             onChange={(e) => updateFilter('areaId', e.target.value)}
-            className="px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+            className="px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#059669]/20"
           >
             <option value="">All Operational Areas</option>
             {areasData?.areas.map((a) => (
@@ -150,7 +150,7 @@ export const PermitsListPage: React.FC = () => {
           <select
             value={status}
             onChange={(e) => updateFilter('status', e.target.value)}
-            className="px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+            className="px-3 py-2 text-xs border border-[#E2E8F0] rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#059669]/20"
           >
             <option value="">All Statuses</option>
             {Object.values(PermitStatus).map((s) => (
@@ -168,7 +168,7 @@ export const PermitsListPage: React.FC = () => {
               onClick={() => updateFilter('mine', !mine)}
               className={`px-3 py-1 rounded-full border text-xs font-medium transition-colors ${
                 mine
-                  ? 'bg-[#2563EB] text-white border-[#2563EB]'
+                  ? 'bg-[#059669] text-white border-[#059669]'
                   : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
