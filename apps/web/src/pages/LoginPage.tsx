@@ -351,64 +351,62 @@ export const LoginPage: React.FC = () => {
           </form>
 
           {/* Reviewer Quick Demo Credentials Helper */}
-          {(import.meta.env.DEV || import.meta.env.VITE_ENABLE_DEMO_ACCOUNTS === 'true') && (
-            <div className="mt-8 pt-6 border-t border-slate-100">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-3">
-                <UserCheck className="w-4 h-4 text-[#059669]" />
-                <span>Reviewer Quick Demo Accounts (Click to Fill):</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => fillDemo('requester@cmms.local')}
-                  className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
-                >
-                  <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Requester</span>
-                  <span className="block text-[11px] text-slate-500 font-mono truncate">
-                    requester@cmms.local
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => fillDemo('area.owner@cmms.local')}
-                  className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
-                >
-                  <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Area Owner</span>
-                  <span className="block text-[11px] text-slate-500 font-mono truncate">
-                    area.owner@cmms.local
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => fillDemo('safety.officer@cmms.local')}
-                  className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
-                >
-                  <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Safety Officer</span>
-                  <span className="block text-[11px] text-slate-500 font-mono truncate">
-                    safety.officer@cmms.local
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => fillDemo('admin@cmms.local')}
-                  className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
-                >
-                  <span className="block font-bold text-slate-800 group-hover:text-emerald-950">System Admin</span>
-                  <span className="block text-[11px] text-slate-500 font-mono truncate">
-                    admin@cmms.local
-                  </span>
-                </button>
-              </div>
-
-              <p className="text-[11px] text-slate-400 mt-3 text-center">
-                Password for all seeded reviewer accounts: <code className="font-mono text-slate-600 font-bold">PtwPass2026!</code>
-              </p>
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-3">
+              <UserCheck className="w-4 h-4 text-[#059669]" />
+              <span>Reviewer Quick Demo Accounts (Click to Fill):</span>
             </div>
-          )}
+
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
+              <button
+                type="button"
+                onClick={() => fillDemo('requester@cmms.local')}
+                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+              >
+                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Requester</span>
+                <span className="block text-[11px] text-slate-500 font-mono truncate">
+                  requester@cmms.local
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemo('area.owner@cmms.local')}
+                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+              >
+                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Area Owner</span>
+                <span className="block text-[11px] text-slate-500 font-mono truncate">
+                  area.owner@cmms.local
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemo('safety.officer@cmms.local')}
+                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+              >
+                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">Safety Officer</span>
+                <span className="block text-[11px] text-slate-500 font-mono truncate">
+                  safety.officer@cmms.local
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => fillDemo('admin@cmms.local')}
+                className="p-3 text-left rounded-2xl border border-slate-200 bg-slate-50/80 hover:bg-emerald-50/40 hover:border-emerald-300 transition-colors group cursor-pointer"
+              >
+                <span className="block font-bold text-slate-800 group-hover:text-emerald-950">System Admin</span>
+                <span className="block text-[11px] text-slate-500 font-mono truncate">
+                  admin@cmms.local
+                </span>
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-400 mt-3 text-center">
+              Password for all seeded reviewer accounts: <code className="font-mono text-slate-600 font-bold">PtwPass2026!</code>
+            </p>
+          </div>
         </div>
 
         {/* Bottom Card Footer */}
