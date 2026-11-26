@@ -5,15 +5,15 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://ptw-cmms-api.onrender.com/api/:path*"
+      "destination": "https://opmaint-ptw.onrender.com/api/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://ptw-cmms-api.onrender.com/health"
+      "destination": "https://opmaint-ptw.onrender.com/health"
     },
     {
       "source": "/internal/:path*",
-      "destination": "https://ptw-cmms-api.onrender.com/internal/:path*"
+      "destination": "https://opmaint-ptw.onrender.com/internal/:path*"
     },
     {
       "source": "/(.*)",
