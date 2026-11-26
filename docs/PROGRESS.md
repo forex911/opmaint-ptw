@@ -615,3 +615,35 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `node scripts/post-deploy-smoke.js https://cmms-three-dun.vercel.app` -> 9/9 passed (100%).
   - Zero CORS errors, zero 404 errors, zero cookie drops.
 
+---
+
+## [2026-11-26 11:50] feat/ui-theme-green-sidebar-lock / Sidebar Viewport Lock & Green Palette Migration
+- **Goal**: Address user design requirements:
+  1. Lock the sidebar navigation (`<aside>`) in place so it never scrolls with the page, making the main content area the only scrollable viewport.
+  2. Migrate the application visual identity from blue (`#2563EB`) and dark navy (`#14243A`) to an executive industrial green palette (`#059669` emerald primary, `#0E231D` deep forest sidebar background, `#183A30` subtle forest borders, `#ECFDF5` light accents).
+- **Done**:
+  - Refactored `apps/web/src/components/layout/Shell.tsx`:
+    - Updated container to `h-screen w-full flex bg-[#F5F7FA] overflow-hidden`.
+    - Set sidebar `<aside>` to `h-screen shrink-0 bg-[#0E231D] border-[#183A30] z-20` so it remains 100% fixed on screen.
+    - Set main page container to `flex-1 flex flex-col min-w-0 h-screen overflow-y-auto` with sticky top header `sticky top-0 z-30 shrink-0` — isolating document scroll strictly to the main content.
+    - Updated brand icon, active pill (`Overview`), and user avatar to emerald green `#059669`.
+  - Migrated design tokens in `tailwind.config.js` and `index.css`:
+    - Added `forest` color scale (`950: #081712`, `900: #0E231D`, `800: #132B23`, `700: #183A30`).
+    - Updated `primary` to `#059669` (hover: `#047857`, light: `#ECFDF5`).
+  - Updated all UI components and pages to the green palette:
+    - `Button.tsx`: primary variant `bg-[#059669] hover:bg-[#047857] focus:ring-[#059669]`, secondary variant `bg-[#132B23]`.
+    - `Input.tsx`: `focus:border-[#059669] focus:ring-[#059669]/20`.
+    - `LoginPage.tsx`: brand container `#0E231D`, shield `#059669`, demo account icons `#059669`.
+    - `DashboardPage.tsx`: active countdown cards, links, action arrows, and recent activity streams to `#059669`.
+    - `PermitsListPage.tsx`: search input focus, selects, and quick filter toggle buttons to `#059669`.
+    - `CreatePermitPage.tsx`: step numbers `#0E231D`, type cards selection border `#059669`, checkboxes `#059669`, submit button `#059669`.
+    - `PermitDetailPage.tsx`: summary icons, multi-party approval icons, and audit timeline dots to `#059669`.
+    - `ReferenceDataPage.tsx`: active tab borders and text to `#059669`.
+- **Commits**:
+  - `ff7d63a feat(ui): fix sidebar viewport scroll lock and migrate theme to industrial green palette`
+- **Verification**:
+  - `npm run typecheck` -> Clean across all workspaces (0 errors).
+  - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (100% green).
+  - `npm run build:web` -> Production build completed cleanly in 11.06s (`dist/assets/index-Q5My7eIz.js`, `dist/assets/index-Ckqr8j25.css`).
+
+
