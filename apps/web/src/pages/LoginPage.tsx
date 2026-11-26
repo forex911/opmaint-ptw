@@ -422,15 +422,6 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Card Footer */}
-        <div className="pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-          <span>© 2005–2026 OPMAINT Inc.</span>
-          <div className="flex items-center gap-3">
-            <span className="hover:text-slate-600 cursor-pointer transition-colors">Contact Support</span>
-            <span>•</span>
-            <span className="hover:text-slate-600 cursor-pointer transition-colors">Safety Guidelines</span>
-          </div>
-        </div>
 
       </div>
 
