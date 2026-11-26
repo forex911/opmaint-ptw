@@ -1,3 +1,4 @@
+
 import { Router } from 'express';
 import { getPool } from '../../db/client.js';
 import { requireAuth } from '../../middleware/auth.js';
@@ -11,7 +12,7 @@ export const referenceRouter = Router();
 referenceRouter.get('/plants', requireAuth, async (_req, res, next) => {
   try {
     const pool = getPool();
-    const result = await pool.query('SELECT id, name FROM plants ORDER BY name ASC');
+    const result = await pool.query('SELECT id, name, code, address FROM plants ORDER BY name ASC');
     res.status(200).json({ plants: result.rows });
   } catch (err) {
     next(err);
@@ -31,6 +32,7 @@ referenceRouter.get('/areas', requireAuth, async (req, res, next) => {
       SELECT 
         a.id, 
         a.plant_id AS "plantId", 
+        a.code,
         a.name, 
         a.owner_id AS "ownerId",
         u.name AS "ownerName",

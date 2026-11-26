@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.1] - 2026-11-26 - Idempotent Database Seeding & Reference Data Unique Constraints
+
+### Fixed
+- **Seed Script Idempotency**:
+  - Rewrote `apps/api/src/db/seed.ts` to perform upserts on unique natural keys:
+    - Plants: `ON CONFLICT (code) DO UPDATE`
+    - Areas: `ON CONFLICT (plant_id, code) DO UPDATE`
+    - Equipment: `ON CONFLICT (tag) DO UPDATE`
+    - Users: `ON CONFLICT (email) DO UPDATE`
+    - Permits: `ON CONFLICT (permit_no) DO UPDATE`
+  - Re-running the seed script any number of times preserves strictly identical row counts without duplicating plants or areas.
+- **Reference Data Codes & Facility Addresses**:
+  - Added new migration `0003_plants_areas_codes_and_constraints.sql` introducing `code` and `address` to `plants` with `UNIQUE (code)`, and `code` to `areas` with `UNIQUE (plant_id, code)`.
+  - Updated reference API route `GET /api/plants` to select `code` and `address`, and `GET /api/areas` to select `code`.
+  - Resolved blank plant codes, area codes, and addresses across the Reference Data page and Permit Creation wizard.
+- **Assigned Area Owners**:
+  - Seeded realistic industrial facilities (3 plants, 8 areas, 26 equipment, 5 users) with designated area owners explicitly assigned to all areas.
+- **Duplicate Prevention in Permit Wizard**:
+  - Confirmed and verified that the Create Permit location cascade lists each plant, area, and equipment item exactly once.
+
+### Added
+- Integration test in `schema.test.ts` verifying that executing `seedDatabase()` twice results in strictly identical row counts for plants, areas, equipment, users, and permits.
+- Integration test in `CreatePermitPage.test.tsx` verifying that dropdown options for plants, areas, and equipment contain zero duplicates.
+- Architectural Decision Record `D-027` in `docs/DECISIONS.md`.
+
+---
+
 ## [0.7.0] - 2026-11-24 - Stage 7: Complete Frontend Application Development
 
 ### Added

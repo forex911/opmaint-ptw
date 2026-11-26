@@ -356,6 +356,21 @@ This log records every architectural decision, rejected alternative, and trade-o
   - Documented explicitly in `README.md` and automated deployment scripts.
 - **Status**: Accepted
 
+---
+
+### D-027 Idempotent Natural-Key Database Seeding and Reference Data Unique Constraints
+- **Context**: The development and test database seed scripts were inserting duplicate plant and area records on repeated executions. The `plants` table previously lacked natural keys (`code`) and physical facility addresses, and `areas` lacked a `code` column and a composite unique constraint on `(plant_id, code)`. Because `id` defaults to `gen_random_uuid()`, `ON CONFLICT DO NOTHING` without explicit conflict targets never matched existing records, causing unbounded duplicates upon re-seeding and rendering plant codes, area codes, and facility addresses blank in the frontend reference data tables and permit creation dropdowns.
+- **Options considered**:
+  - *Option A*: Edit old migration `0000_initial_schema.sql` to add constraints retroactively. (Rejected: Violates immutable migration discipline and breaks existing production environments).
+  - *Option B*: Perform application-level deduplication by name before inserting. (Rejected: Vulnerable to race conditions without database-level unique constraints and fails to provide unique natural codes).
+  - *Option C*: Add a new migration `0003_plants_areas_codes_and_constraints.sql` establishing `plants.code UNIQUE`, `plants.address`, `areas.code`, and `UNIQUE (plant_id, code)`, and rewrite `seedDatabase()` to use explicit natural-key upserts (`ON CONFLICT (code) DO UPDATE`, `ON CONFLICT (plant_id, code) DO UPDATE`, `ON CONFLICT (tag) DO UPDATE`, `ON CONFLICT (email) DO UPDATE`).
+- **Decision**: Option C — Implement migration 0003, update Drizzle schema definitions, update reference API routes to return `code` and `address`, and make `seedDatabase()` fully idempotent across users, plants, areas, equipment, and permits with realistic reference data (3 plants, 8 areas with assigned area owners, 26 equipment, 5 users).
+- **Consequences**:
+  - Re-running `seedDatabase()` any number of times results in strictly identical row counts (verified by unit test `executes the seed script twice without error (idempotent verification): counts unchanged`).
+  - Plants, areas, and equipment display distinct codes, tags, and addresses in both `ReferenceDataPage.tsx` and `CreatePermitPage.tsx`.
+  - Cascading location dropdowns in the permit creation wizard list each plant, area, and equipment item exactly once.
+- **Status**: Accepted
+
 
 
 

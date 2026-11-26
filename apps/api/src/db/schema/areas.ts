@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, index } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, index, unique } from 'drizzle-orm/pg-core';
 import { plants } from './plants.js';
 import { users } from './users.js';
 
@@ -9,6 +9,7 @@ export const areas = pgTable(
     plantId: uuid('plant_id')
       .notNull()
       .references(() => plants.id, { onDelete: 'restrict' }),
+    code: text('code').notNull(),
     name: text('name').notNull(),
     ownerId: uuid('owner_id')
       .notNull()
@@ -17,6 +18,7 @@ export const areas = pgTable(
   (table) => ({
     areasPlantIdIdx: index('areas_plant_id_idx').on(table.plantId),
     areasOwnerIdIdx: index('areas_owner_id_idx').on(table.ownerId),
+    areasPlantIdCodeUnique: unique('areas_plant_id_code_unique').on(table.plantId, table.code),
   })
 );
 

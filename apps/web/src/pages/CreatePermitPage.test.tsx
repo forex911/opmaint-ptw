@@ -226,4 +226,53 @@ describe('CreatePermitPage Equipment Cascade Component Tests (Bug 2)', () => {
     expect(submittedPayload.equipmentId).toBeUndefined();
     expect(submittedPayload).not.toHaveProperty('equipmentId', '');
   });
+
+  it('lists each plant, area, and equipment exactly once without duplicates in dropdowns', async () => {
+    renderComponent();
+
+    // 1. Advance to Step 2 (Location)
+    fireEvent.click(screen.getByRole('button', { name: /Next:.*Location/i }));
+
+    const plantSelect = screen.getByLabelText(/^Plant/i) as HTMLSelectElement;
+    await waitFor(() => {
+      // 1 placeholder + 2 unique plants = 3 options
+      expect(plantSelect.options.length).toBe(3);
+    });
+
+    const plantTexts = Array.from(plantSelect.options).map((o) => o.text);
+    expect(plantTexts[1]).toBe('Refinery Alpha (REF-A)');
+    expect(plantTexts[2]).toBe('Chemical Beta (CHM-B)');
+    // Assert no duplicate plant texts
+    const uniquePlants = new Set(plantTexts);
+    expect(uniquePlants.size).toBe(plantTexts.length);
+
+    // 2. Select Plant -> assert areas are listed exactly once without duplicates
+    fireEvent.change(plantSelect, { target: { value: 'plant-100' } });
+
+    const areaSelect = screen.getByLabelText(/^Area/i) as HTMLSelectElement;
+    await waitFor(() => {
+      // 1 placeholder + 2 areas = 3 options
+      expect(areaSelect.options.length).toBe(3);
+    });
+
+    const areaTexts = Array.from(areaSelect.options).map((o) => o.text);
+    expect(areaTexts[1]).toBe('Boiler House (BH)');
+    expect(areaTexts[2]).toBe('Empty Storage Yard (EY)');
+    const uniqueAreas = new Set(areaTexts);
+    expect(uniqueAreas.size).toBe(areaTexts.length);
+
+    // 3. Select Area -> assert equipment are listed exactly once without duplicates
+    fireEvent.change(areaSelect, { target: { value: 'area-101' } });
+
+    const equipmentSelect = screen.getByLabelText(/^Equipment/i) as HTMLSelectElement;
+    await waitFor(() => {
+      // 1 placeholder + 1 equipment = 2 options
+      expect(equipmentSelect.options.length).toBe(2);
+    });
+
+    const eqTexts = Array.from(equipmentSelect.options).map((o) => o.text);
+    expect(eqTexts[1]).toBe('Feedwater Pump (P-101)');
+    const uniqueEq = new Set(eqTexts);
+    expect(uniqueEq.size).toBe(eqTexts.length);
+  });
 });

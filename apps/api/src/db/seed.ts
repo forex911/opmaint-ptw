@@ -32,6 +32,12 @@ export const SEED_ACCOUNTS: SeedCredentials[] = [
     passwordPlain: 'PtwPass2026!',
   },
   {
+    role: UserRole.AREA_OWNER,
+    name: 'Karthik Venkat',
+    email: 'area.owner2@cmms.local',
+    passwordPlain: 'PtwPass2026!',
+  },
+  {
     role: UserRole.SAFETY_OFFICER,
     name: 'Priya Nair',
     email: 'safety.officer@cmms.local',
@@ -45,6 +51,141 @@ export const SEED_ACCOUNTS: SeedCredentials[] = [
   },
 ];
 
+export interface SeedPlantDef {
+  code: string;
+  name: string;
+  address: string;
+}
+
+export const SEED_PLANTS: SeedPlantDef[] = [
+  {
+    code: 'PLANT-CHE-01',
+    name: 'Manali Petrochemical Complex',
+    address: 'Express Highway, Manali Industrial Zone, Chennai, Tamil Nadu 600068',
+  },
+  {
+    code: 'PLANT-ENR-02',
+    name: 'Ennore Power & Marine Terminal',
+    address: 'Port Access Corridor, Voyalur Post, Ennore, Chennai, Tamil Nadu 600120',
+  },
+  {
+    code: 'PLANT-CBE-03',
+    name: 'Coimbatore Gas & Turbine Station',
+    address: 'Trichy Road, Sulur Industrial Park, Coimbatore, Tamil Nadu 641402',
+  },
+];
+
+export interface SeedAreaDef {
+  plantCode: string;
+  code: string;
+  name: string;
+  ownerEmail: string;
+}
+
+export const SEED_AREAS: SeedAreaDef[] = [
+  // Manali Petrochemical Complex (PLANT-CHE-01)
+  {
+    plantCode: 'PLANT-CHE-01',
+    code: 'AREA-MPC-01',
+    name: 'Alkylation & Reforming Unit 02',
+    ownerEmail: 'area.owner@cmms.local',
+  },
+  {
+    plantCode: 'PLANT-CHE-01',
+    code: 'AREA-MPC-02',
+    name: 'Crude Distillation Column A',
+    ownerEmail: 'area.owner@cmms.local',
+  },
+  {
+    plantCode: 'PLANT-CHE-01',
+    code: 'AREA-MPC-03',
+    name: 'High Voltage Substation Yard 110kV',
+    ownerEmail: 'area.owner2@cmms.local',
+  },
+  // Ennore Power & Marine Terminal (PLANT-ENR-02)
+  {
+    plantCode: 'PLANT-ENR-02',
+    code: 'AREA-ENR-01',
+    name: 'Boiler Island Block B',
+    ownerEmail: 'area.owner@cmms.local',
+  },
+  {
+    plantCode: 'PLANT-ENR-02',
+    code: 'AREA-ENR-02',
+    name: 'Marine Fuel Bunker Berth 3',
+    ownerEmail: 'area.owner2@cmms.local',
+  },
+  {
+    plantCode: 'PLANT-ENR-02',
+    code: 'AREA-ENR-03',
+    name: 'Cooling Water Pumphouse',
+    ownerEmail: 'area.owner@cmms.local',
+  },
+  // Coimbatore Gas & Turbine Station (PLANT-CBE-03)
+  {
+    plantCode: 'PLANT-CBE-03',
+    code: 'AREA-CBE-01',
+    name: 'Turbine Generator Hall GT-1',
+    ownerEmail: 'area.owner2@cmms.local',
+  },
+  {
+    plantCode: 'PLANT-CBE-03',
+    code: 'AREA-CBE-02',
+    name: 'Gas Compression & Metering Station',
+    ownerEmail: 'area.owner@cmms.local',
+  },
+];
+
+export interface SeedEquipmentDef {
+  areaCode: string;
+  tag: string;
+  name: string;
+}
+
+export const SEED_EQUIPMENT: SeedEquipmentDef[] = [
+  // AREA-MPC-01
+  { areaCode: 'AREA-MPC-01', tag: 'P-101A', name: 'Feed Charge Pump A' },
+  { areaCode: 'AREA-MPC-01', tag: 'P-101B', name: 'Feed Charge Pump B (Standby)' },
+  { areaCode: 'AREA-MPC-01', tag: 'V-204', name: 'Surge Vessel Column' },
+  { areaCode: 'AREA-MPC-01', tag: 'R-101', name: 'Catalytic Reactor 01' },
+
+  // AREA-MPC-02
+  { areaCode: 'AREA-MPC-02', tag: 'C-101', name: 'Atmospheric Distillation Column' },
+  { areaCode: 'AREA-MPC-02', tag: 'E-101A', name: 'Crude Preheater Exchanger A' },
+  { areaCode: 'AREA-MPC-02', tag: 'P-202A', name: 'Bottoms Residue Pump' },
+
+  // AREA-MPC-03
+  { areaCode: 'AREA-MPC-03', tag: 'TR-110-1', name: '110kV Main Step-down Transformer' },
+  { areaCode: 'AREA-MPC-03', tag: 'SWG-01', name: '11kV Switchgear Incomer Breaker' },
+  { areaCode: 'AREA-MPC-03', tag: 'MCC-01', name: 'Motor Control Center Switchgear' },
+
+  // AREA-ENR-01
+  { areaCode: 'AREA-ENR-01', tag: 'BLR-02', name: 'High Pressure Steam Boiler #2' },
+  { areaCode: 'AREA-ENR-01', tag: 'BFP-02A', name: 'Boiler Feedwater Pump 2A' },
+  { areaCode: 'AREA-ENR-01', tag: 'ID-FAN-02', name: 'Induced Draft Flue Gas Fan' },
+  { areaCode: 'AREA-ENR-01', tag: 'SHT-201', name: 'Superheater Header Steam Line' },
+
+  // AREA-ENR-02
+  { areaCode: 'AREA-ENR-02', tag: 'MLA-03', name: 'Marine Loading Arm Berth 3' },
+  { areaCode: 'AREA-ENR-02', tag: 'BP-301', name: 'Bunker Fuel Transfer Pump' },
+  { areaCode: 'AREA-ENR-02', tag: 'BD-301', name: 'Vapor Recovery Balancing Drum' },
+
+  // AREA-ENR-03
+  { areaCode: 'AREA-ENR-03', tag: 'CWP-01A', name: 'Primary Sea Cooling Water Pump A' },
+  { areaCode: 'AREA-ENR-03', tag: 'CWP-01B', name: 'Primary Sea Cooling Water Pump B' },
+  { areaCode: 'AREA-ENR-03', tag: 'FLT-101', name: 'Traveling Water Screen Filter' },
+
+  // AREA-CBE-01
+  { areaCode: 'AREA-CBE-01', tag: 'GT-01', name: '45MW Gas Turbine Generator' },
+  { areaCode: 'AREA-CBE-01', tag: 'LOB-01', name: 'Turbine Lube Oil Skid System' },
+  { areaCode: 'AREA-CBE-01', tag: 'EXC-01', name: 'Static Exciter Panel' },
+
+  // AREA-CBE-02
+  { areaCode: 'AREA-CBE-02', tag: 'C-301B', name: 'Centrifugal Gas Compressor' },
+  { areaCode: 'AREA-CBE-02', tag: 'E-102', name: 'Shell & Tube Heat Exchanger' },
+  { areaCode: 'AREA-CBE-02', tag: 'MTR-201', name: 'Custody Transfer Ultrasonic Gas Meter' },
+];
+
 export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
   const ownPool = !customPool && env.ADMIN_DATABASE_URL ? new Pool({ connectionString: env.ADMIN_DATABASE_URL }) : null;
   const pool = customPool || ownPool || getPool();
@@ -55,7 +196,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
   try {
     await client.query('BEGIN');
 
-    // 1. Seed Users
+    // 1. Seed Users (idempotent upsert on users.email)
     console.log('  👤 Seeding Users...');
     const userMap = new Map<string, string>(); // email -> id
 
@@ -78,88 +219,83 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
     const areaOwnerId = userMap.get('area.owner@cmms.local')!;
     const safetyOfficerId = userMap.get('safety.officer@cmms.local')!;
 
-    // 2. Seed Plants (Chennai Industrial Facilities)
+    // 2. Seed Plants (idempotent upsert on plants.code)
     console.log('  🏭 Seeding Plants...');
-    const plant1Res = await client.query(
-      `
-      INSERT INTO plants (name) VALUES ('Manali Petrochemical Complex')
-      ON CONFLICT DO NOTHING RETURNING id;
-    `
-    );
-    let plant1Id = plant1Res.rows[0]?.id;
-    if (!plant1Id) {
-      const existing = await client.query(
-        "SELECT id FROM plants WHERE name = 'Manali Petrochemical Complex'"
-      );
-      plant1Id = existing.rows[0].id;
-    }
+    const plantMap = new Map<string, string>(); // plantCode -> id
 
-    const plant2Res = await client.query(
-      `
-      INSERT INTO plants (name) VALUES ('Ennore Power & Marine Terminal')
-      ON CONFLICT DO NOTHING RETURNING id;
-    `
-    );
-    let plant2Id = plant2Res.rows[0]?.id;
-    if (!plant2Id) {
-      const existing = await client.query(
-        "SELECT id FROM plants WHERE name = 'Ennore Power & Marine Terminal'"
-      );
-      plant2Id = existing.rows[0].id;
-    }
-
-    // 3. Seed Areas
-    console.log('  📍 Seeding Areas...');
-    async function upsertArea(plantId: string, name: string, ownerId: string): Promise<string> {
-      const existing = await client.query(
-        'SELECT id FROM areas WHERE plant_id = $1 AND name = $2',
-        [plantId, name]
-      );
-      if (existing.rows.length > 0) {
-        return existing.rows[0].id;
-      }
+    for (const plant of SEED_PLANTS) {
       const res = await client.query(
         `
-        INSERT INTO areas (plant_id, name, owner_id)
+        INSERT INTO plants (code, name, address)
         VALUES ($1, $2, $3)
+        ON CONFLICT (code) DO UPDATE
+        SET name = EXCLUDED.name, address = EXCLUDED.address
         RETURNING id;
       `,
-        [plantId, name, ownerId]
+        [plant.code, plant.name, plant.address]
       );
-      return res.rows[0].id;
+      plantMap.set(plant.code, res.rows[0].id);
     }
 
-    const area1Id = await upsertArea(plant1Id, 'Alkylation Unit 02', areaOwnerId);
-    const area2Id = await upsertArea(plant2Id, 'Boiler Island Block B', areaOwnerId);
-    const area3Id = await upsertArea(plant1Id, 'Substation Yard 110kV', areaOwnerId);
+    // 3. Seed Areas (idempotent upsert on areas (plant_id, code))
+    console.log('  📍 Seeding Areas...');
+    const areaMap = new Map<string, string>(); // areaCode -> id
 
-    // 4. Seed Equipment
+    for (const area of SEED_AREAS) {
+      const plantId = plantMap.get(area.plantCode)!;
+      const ownerId = userMap.get(area.ownerEmail) || areaOwnerId;
+
+      const res = await client.query(
+        `
+        INSERT INTO areas (plant_id, code, name, owner_id)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (plant_id, code) DO UPDATE
+        SET name = EXCLUDED.name, owner_id = EXCLUDED.owner_id
+        RETURNING id;
+      `,
+        [plantId, area.code, area.name, ownerId]
+      );
+      areaMap.set(area.code, res.rows[0].id);
+    }
+
+    // 4. Seed Equipment (idempotent upsert on equipment.tag)
     console.log('  ⚙️  Seeding Equipment...');
-    async function upsertEquipment(areaId: string, tag: string, name: string): Promise<string> {
+    const eqMap = new Map<string, string>(); // tag -> id
+
+    for (const eq of SEED_EQUIPMENT) {
+      const areaId = areaMap.get(eq.areaCode)!;
+
       const res = await client.query(
         `
         INSERT INTO equipment (area_id, tag, name)
         VALUES ($1, $2, $3)
-        ON CONFLICT (tag) DO UPDATE SET area_id = EXCLUDED.area_id, name = EXCLUDED.name
+        ON CONFLICT (tag) DO UPDATE
+        SET area_id = EXCLUDED.area_id, name = EXCLUDED.name
         RETURNING id;
       `,
-        [areaId, tag, name]
+        [areaId, eq.tag, eq.name]
       );
-      return res.rows[0].id;
+      eqMap.set(eq.tag, res.rows[0].id);
     }
 
-    const eq1Id = await upsertEquipment(area1Id, 'P-101A', 'Feed Charge Pump');
-    const eq2Id = await upsertEquipment(area1Id, 'V-204', 'Surge Vessel Column');
-    const eq3Id = await upsertEquipment(area2Id, 'C-301B', 'Centrifugal Gas Compressor');
-    const eq4Id = await upsertEquipment(area2Id, 'E-102', 'Shell & Tube Heat Exchanger');
-    const eq5Id = await upsertEquipment(area3Id, 'T-501', 'Crude Storage Tank');
-    const eq6Id = await upsertEquipment(area3Id, 'MCC-01', 'Motor Control Center Switchgear');
-
-    // 5. Seed 10 Permits across all 10 statuses
-    console.log('  📋 Seeding 10 Permits across all statuses with audit trails...');
+    // 5. Seed 11 Permits across all statuses (idempotent upsert on permits.permit_no)
+    console.log('  📋 Seeding 11 Permits across all statuses with audit trails...');
 
     const now = Date.now();
     const oneHour = 60 * 60 * 1000;
+
+    const plant1Id = plantMap.get('PLANT-CHE-01')!;
+    const plant2Id = plantMap.get('PLANT-ENR-02')!;
+
+    const area1Id = areaMap.get('AREA-MPC-01')!;
+    const area2Id = areaMap.get('AREA-ENR-01')!;
+    const area3Id = areaMap.get('AREA-MPC-03')!;
+
+    const eq1Id = eqMap.get('P-101A')!;
+    const eq2Id = eqMap.get('V-204')!;
+    const eq3Id = eqMap.get('BLR-02')!;
+    const eq4Id = eqMap.get('SHT-201')!;
+    const eq5Id = eqMap.get('MCC-01')!;
 
     const permitDefinitions = [
       {
@@ -248,7 +384,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
         workDescription: 'Switchgear breaker maintenance and contact resistance check',
         plantId: plant1Id,
         areaId: area3Id,
-        equipmentId: eq6Id,
+        equipmentId: eq5Id,
         plannedStart: new Date(now + 2 * oneHour),
         plannedEnd: new Date(now + 6 * oneHour),
         hazards: ['Arc Flash', 'Electric Shock', 'Stored Energy'],
@@ -301,14 +437,14 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
         contractorTeam: 'Vessel Safe Techs',
         workDescription: 'Internal sludge desludging and high pressure jetting',
         plantId: plant1Id,
-        areaId: area3Id,
-        equipmentId: eq5Id,
+        areaId: area1Id,
+        equipmentId: eq2Id,
         plannedStart: new Date(now + 4 * oneHour),
         plannedEnd: new Date(now + 12 * oneHour),
         hazards: ['Hydrocarbon Residues', 'Oxygen Deficiency'],
         ppe: ['Supplied Air Respirator (SAR)', 'Chemical Suit', 'Safety Boots'],
         details: {
-          space_id: 'T-501-STORAGE-TANK',
+          space_id: 'V-204-VESSEL',
           entry_point: 'Shell Manhole 1',
           atmosphere_test: {
             o2_pct: 20.9,
@@ -339,7 +475,6 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
         details: {
           hot_work_type: 'grinding',
           fire_watch_assigned: true,
-          // Intentionally partial draft fields
         },
       },
       {
@@ -441,7 +576,6 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
     ];
 
     for (const p of permitDefinitions) {
-      // Validate details against registry schema (draft mode for DRAFT, submit mode otherwise)
       const mode = p.status === PermitStatus.DRAFT ? 'draft' : 'submit';
       const validation = validatePermitDetails(p.type, p.details, mode);
       if (!validation.valid && p.status !== PermitStatus.DRAFT) {
@@ -546,7 +680,6 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
           PermitStatus.CLOSED_VERIFIED,
         ];
         const isApproved = approvedStatuses.includes(p.status);
-
         const isRejected = p.status === PermitStatus.REJECTED;
 
         await client.query(
@@ -609,7 +742,6 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
             [permitId, requesterId, p.plannedStart]
           );
 
-          // Add a work log for ACTIVE permits
           await client.query(
             `
             INSERT INTO permit_work_logs (permit_id, logged_by, note, kind, created_at)

@@ -168,26 +168,88 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     }
   });
 
-  it('executes the seed script twice without error (idempotent verification)', async () => {
+  it('executes the seed script twice without error (idempotent verification): counts unchanged', async () => {
     // Run seed first time
-    await seedDatabase();
+    await seedDatabase(pool);
+
+    const getCounts = async () => {
+      const p = await pool.query('SELECT count(*) AS count FROM plants');
+      const a = await pool.query('SELECT count(*) AS count FROM areas');
+      const e = await pool.query('SELECT count(*) AS count FROM equipment');
+      const u = await pool.query('SELECT count(*) AS count FROM users');
+      const pm = await pool.query('SELECT count(*) AS count FROM permits');
+      return {
+        plants: parseInt(p.rows[0].count, 10),
+        areas: parseInt(a.rows[0].count, 10),
+        equipment: parseInt(e.rows[0].count, 10),
+        users: parseInt(u.rows[0].count, 10),
+        permits: parseInt(pm.rows[0].count, 10),
+      };
+    };
+
+    const counts1 = await getCounts();
+
+    // Verify small realistic set counts
+    expect(counts1.plants).toBe(3);
+    expect(counts1.areas).toBe(8);
+    expect(counts1.equipment).toBe(26);
+    expect(counts1.users).toBe(5);
+    expect(counts1.permits).toBe(11);
 
     // Run seed second time
-    await seedDatabase();
+    await seedDatabase(pool);
 
-    // Verify 4 users seeded
-    const usersRes = await pool.query('SELECT count(*) AS count FROM users');
-    expect(parseInt(usersRes.rows[0].count, 10)).toBeGreaterThanOrEqual(4);
+    const counts2 = await getCounts();
 
-    // Verify 11 permits seeded across all statuses
-    const permitsRes = await pool.query(
-      "SELECT count(*) AS count FROM permits WHERE permit_no ~ '^PTW-\\d{4}-00(0[1-9]|1[0-1])$'"
+    // Row counts MUST remain strictly unchanged
+    expect(counts2.plants).toBe(counts1.plants);
+    expect(counts2.areas).toBe(counts1.areas);
+    expect(counts2.equipment).toBe(counts1.equipment);
+    expect(counts2.users).toBe(counts1.users);
+    expect(counts2.permits).toBe(counts1.permits);
+
+    // Verify all plants have non-empty code and address
+    const invalidPlants = await pool.query(
+      "SELECT count(*) AS count FROM plants WHERE code IS NULL OR address IS NULL OR code = '' OR address = ''"
     );
-    expect(parseInt(permitsRes.rows[0].count, 10)).toBe(11);
+    expect(parseInt(invalidPlants.rows[0].count, 10)).toBe(0);
+
+    // Verify all areas have non-empty code and assigned area owner
+    const invalidAreas = await pool.query(
+      "SELECT count(*) AS count FROM areas WHERE code IS NULL OR code = '' OR owner_id IS NULL"
+    );
+    expect(parseInt(invalidAreas.rows[0].count, 10)).toBe(0);
 
     // Verify all 10 distinct statuses are represented
     const statusesRes = await pool.query('SELECT DISTINCT status FROM permits');
     expect(statusesRes.rows.length).toBe(10);
+  });
+
+  it('enforces UNIQUE constraint on plants.code and areas.(plant_id, code)', async () => {
+    const client = await pool.connect();
+    try {
+      // Attempt duplicate plant code
+      await expect(
+        client.query(
+          "INSERT INTO plants (code, name, address) VALUES ('PLANT-CHE-01', 'Duplicate Plant', 'Some Address')"
+        )
+      ).rejects.toThrow(/plants_code_unique|unique constraint/i);
+
+      // Attempt duplicate area (plant_id, code)
+      const plantRes = await client.query("SELECT id FROM plants WHERE code = 'PLANT-CHE-01'");
+      const plantId = plantRes.rows[0].id;
+      const userRes = await client.query('SELECT id FROM users LIMIT 1');
+      const userId = userRes.rows[0].id;
+
+      await expect(
+        client.query(
+          "INSERT INTO areas (plant_id, code, name, owner_id) VALUES ($1, 'AREA-MPC-01', 'Duplicate Area', $2)",
+          [plantId, userId]
+        )
+      ).rejects.toThrow(/areas_plant_id_code_unique|unique constraint/i);
+    } finally {
+      client.release();
+    }
   });
 
   it('advances ptw_permit_no_seq past seeded permits so generating a new permit yields a unique number', async () => {
