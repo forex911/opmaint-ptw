@@ -55,21 +55,31 @@ describe('Specification Compliance Suite: HTTP Supertest with Seeded Users', () 
     const adminRes = await pool.query(`SELECT id FROM users WHERE email = 'admin@cmms.local'`);
     adminUserId = adminRes.rows[0].id;
 
+    const aoRes = await pool.query(`SELECT id FROM users WHERE email = 'area.owner@cmms.local'`);
+    const areaOwnerUserId = aoRes.rows[0].id;
+
     const eqRes = await pool.query(`
       SELECT e.id as equipment_id, e.area_id, a.plant_id 
       FROM equipment e 
       JOIN areas a ON a.id = e.area_id
+      WHERE a.owner_id = $1
       ORDER BY e.tag ASC
-    `);
+    `, [areaOwnerUserId]);
 
     equipment1Id = eqRes.rows[0].equipment_id;
     area1Id = eqRes.rows[0].area_id;
     plant1Id = eqRes.rows[0].plant_id;
 
-    const diffArea = eqRes.rows.find((r) => r.area_id !== area1Id)!;
-    equipment2Id = diffArea.equipment_id;
-    area2Id = diffArea.area_id;
-    plant2Id = diffArea.plant_id;
+    const diffArea = await pool.query(`
+      SELECT e.id as equipment_id, e.area_id, a.plant_id 
+      FROM equipment e 
+      JOIN areas a ON a.id = e.area_id
+      WHERE a.id != $1
+      LIMIT 1
+    `, [area1Id]);
+    equipment2Id = diffArea.rows[0].equipment_id;
+    area2Id = diffArea.rows[0].area_id;
+    plant2Id = diffArea.rows[0].plant_id;
   });
 
   afterAll(async () => {

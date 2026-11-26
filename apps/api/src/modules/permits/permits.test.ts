@@ -50,23 +50,33 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       .send({ email: 'admin@cmms.local', password: 'PtwPass2026!' })
       .expect(200);
 
+    const userRes = await pool.query(`SELECT id FROM users WHERE email = 'area.owner@cmms.local'`);
+    const areaOwnerUserId = userRes.rows[0].id;
+
     // Fetch reference plants, areas, and equipment via reliable join
     const eqRes = await pool.query(`
       SELECT e.id as equipment_id, e.area_id, a.plant_id 
       FROM equipment e 
       JOIN areas a ON a.id = e.area_id
+      WHERE a.owner_id = $1
       ORDER BY e.tag ASC
-    `);
+    `, [areaOwnerUserId]);
 
     equipment1Id = eqRes.rows[0].equipment_id;
     area1Id = eqRes.rows[0].area_id;
     plant1Id = eqRes.rows[0].plant_id;
 
-    // Find equipment in a different area
-    const diffArea = eqRes.rows.find((r) => r.area_id !== area1Id)!;
-    equipment3Id = diffArea.equipment_id;
-    area2Id = diffArea.area_id;
-    plant2Id = diffArea.plant_id;
+    // Find equipment in a different plant
+    const diffPlant = await pool.query(`
+      SELECT e.id as equipment_id, e.area_id, a.plant_id 
+      FROM equipment e 
+      JOIN areas a ON a.id = e.area_id
+      WHERE a.plant_id != $1
+      LIMIT 1
+    `, [plant1Id]);
+    equipment3Id = diffPlant.rows[0].equipment_id;
+    area2Id = diffPlant.rows[0].area_id;
+    plant2Id = diffPlant.rows[0].plant_id;
   });
 
   afterAll(async () => {

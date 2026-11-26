@@ -67,6 +67,8 @@ describe('Stage 8 End-to-End User Workflows & Permit Types Integration Suite', (
       SELECT e.id as equipment_id, e.area_id, a.plant_id 
       FROM equipment e 
       JOIN areas a ON a.id = e.area_id 
+      JOIN users u ON u.id = a.owner_id
+      WHERE u.email = 'area.owner@cmms.local'
       LIMIT 1
     `);
     equipmentId = eqRes.rows[0].equipment_id;
