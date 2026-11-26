@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Shield,
   Eye,
   EyeOff,
   AlertCircle,
@@ -14,6 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.js';
+import { Logo } from '../components/ui/Logo.js';
 
 export const LoginPage: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
@@ -55,12 +55,12 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-full flex flex-col lg:flex-row bg-[#081712] overflow-x-hidden selection:bg-emerald-500 selection:text-white font-sans">
-
+      
       {/* ===================================================================== */}
       {/* LEFT COLUMN: Full-Bleed Dark Forest Hero, Mockup & Sonar Rings        */}
       {/* ===================================================================== */}
       <div className="w-full lg:w-[52%] xl:w-[55%] min-h-[580px] lg:min-h-screen lg:h-screen p-8 sm:p-12 lg:p-14 xl:p-16 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[#0B1E17] via-[#0E231D] to-[#06140F] shrink-0">
-
+        
         {/* Background Concentric Radar Rings */}
         <div className="absolute -left-20 -bottom-20 w-[680px] h-[680px] pointer-events-none opacity-20">
           <div className="absolute inset-0 rounded-full border border-emerald-400" />
@@ -96,11 +96,11 @@ export const LoginPage: React.FC = () => {
           {/* Handheld Industrial Terminal Mockup */}
           <div className="relative max-w-[340px] rounded-[2.5rem] bg-slate-900/90 p-3 shadow-2xl ring-1 ring-white/15 backdrop-blur-md">
             <div className="bg-[#091712] rounded-[2.1rem] p-4 border border-emerald-500/25 overflow-hidden">
-
+              
               {/* Device Header */}
               <div className="flex items-center justify-between pb-3 border-b border-emerald-800/40 text-[11px]">
                 <div className="flex items-center gap-1.5 text-emerald-400">
-                  <Shield className="w-3.5 h-3.5" />
+                  <Logo size="sm" className="w-4 h-4 rounded-md" />
                   <span className="font-bold text-white tracking-wider text-[11px]">PTW LIVE</span>
                 </div>
                 <span className="inline-flex items-center gap-1 text-[9px] text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-700/60 font-mono font-semibold">
@@ -180,13 +180,11 @@ export const LoginPage: React.FC = () => {
       {/* RIGHT COLUMN: Full-Height Clean White Form Section                    */}
       {/* ===================================================================== */}
       <div className="w-full lg:w-[48%] xl:w-[45%] min-h-screen lg:h-screen bg-white rounded-t-[2.5rem] lg:rounded-t-none lg:rounded-l-[3.5rem] shadow-[-25px_0_60px_rgba(0,0,0,0.35)] flex flex-col justify-between p-8 sm:p-12 lg:p-14 xl:p-16 overflow-y-auto z-10 relative">
-
+        
         {/* Top Header: Brand Logo & Portal Status */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-[#0E231D] text-white shadow-md">
-              <Shield className="w-6 h-6 text-[#059669]" />
-            </div>
+            <Logo size="lg" />
             <div>
               <span className="font-extrabold tracking-tight text-slate-900 text-base sm:text-lg block">
                 OPMAINT CMMS
@@ -320,7 +318,7 @@ export const LoginPage: React.FC = () => {
                 <UserCheck className="w-4 h-4 text-[#059669]" />
                 <span>Reviewer Quick Demo Accounts (Click to Fill):</span>
               </div>
-
+              
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <button
                   type="button"
@@ -372,6 +370,16 @@ export const LoginPage: React.FC = () => {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Bottom Card Footer */}
+        <div className="pt-6 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+          <span>© 2005–2026 OPMAINT Inc.</span>
+          <div className="flex items-center gap-3">
+            <span className="hover:text-slate-600 cursor-pointer transition-colors">Contact Support</span>
+            <span>•</span>
+            <span className="hover:text-slate-600 cursor-pointer transition-colors">Safety Guidelines</span>
+          </div>
         </div>
 
       </div>

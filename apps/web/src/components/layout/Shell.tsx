@@ -8,13 +8,13 @@ import {
   Database,
   LogOut,
   User,
-  Shield,
   Menu,
   X,
   CheckSquare,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 import { Button } from '../ui/Button.js';
+import { Logo } from '../ui/Logo.js';
 
 export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout, isRequester, isAdmin, isAreaOwner, isSafetyOfficer } = useAuth();
@@ -68,11 +68,9 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       <aside className="hidden md:flex flex-col w-64 h-screen bg-[#0E231D] text-white shrink-0 border-r border-[#183A30]">
         {/* Brand */}
         <div className="h-16 flex items-center px-6 border-b border-[#183A30] gap-3 shrink-0">
-          <div className="p-2 rounded-lg bg-[#059669] text-white shadow-sm">
-            <Shield className="w-5 h-5" />
-          </div>
+          <Logo size="md" />
           <div>
-            <span className="font-bold tracking-tight text-white text-base">OPMAINT</span>
+            <span className="font-extrabold tracking-tight text-white text-base">OPMAINT</span>
             <span className="block text-[10px] tracking-wider text-emerald-200/60 font-semibold uppercase">
               Permit to Work
             </span>
@@ -147,8 +145,8 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
           />
           <div className="relative flex flex-col w-64 bg-[#0E231D] text-white p-4 border-r border-[#183A30]">
             <div className="flex items-center justify-between pb-4 border-b border-[#183A30]">
-              <div className="flex items-center gap-2">
-                <Shield className="w-5 h-5 text-[#059669]" />
+              <div className="flex items-center gap-2.5">
+                <Logo size="sm" />
                 <span className="font-bold text-white">OPMAINT PTW</span>
               </div>
               <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 p-1">
