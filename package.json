@@ -15,7 +15,7 @@
     "dev:api": "npm run --workspace=@ptw/api dev",
     "typecheck": "npm run --workspaces --if-present typecheck",
     "lint": "npm run --workspaces --if-present lint",
-    "build": "npm run --workspaces --if-present build",
+    "build": "npm run --workspace=@ptw/shared build && npm run --workspaces --if-present build",
     "test": "npm run --workspaces --if-present test",
     "db:migrate": "npm run --workspace=@ptw/api db:migrate",
     "db:seed": "npm run --workspace=@ptw/api db:seed",

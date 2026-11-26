@@ -6,6 +6,7 @@
   "description": "PTW Web Application",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run --workspace=@ptw/shared build",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
