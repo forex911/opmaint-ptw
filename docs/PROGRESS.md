@@ -673,5 +673,26 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (including both `LoginPage.test.tsx` tests).
   - `npm run build:web` -> Clean build in 6.74s.
 
+---
+
+## [2026-11-26 12:15] feat/ui-favicon-and-logo / Custom Green Ring Favicon & Logo Implementation
+- **Goal**: Configure the user's custom green ring squircle icon as the official application favicon and brand logo across the frontend.
+- **Done**:
+  - Placed the image into `apps/web/public/` as:
+    - `apps/web/public/logo.png`
+    - `apps/web/public/favicon.png`
+    - `apps/web/public/favicon.svg` (vector-sharp SVG squircle with neon lime/emerald ring)
+  - Updated `apps/web/index.html`:
+    - Linked `favicon.svg`, `logo.png`, and `apple-touch-icon`.
+  - Created reusable component `apps/web/src/components/ui/Logo.tsx` supporting `sm`, `md`, `lg`, and `xl` sizing.
+  - Replaced shield placeholder with `<Logo />`:
+    - `apps/web/src/components/layout/Shell.tsx` (desktop sidebar brand & mobile drawer brand).
+    - `apps/web/src/pages/LoginPage.tsx` (login form card brand & live handheld terminal header).
+- **Verification**:
+  - `npm run typecheck` -> 0 errors.
+  - `npm run --workspace=@ptw/web test` -> 32/32 tests passing (100% green).
+  - `npm run build:web` -> Clean production build in 10.65s.
+
+
 
 
