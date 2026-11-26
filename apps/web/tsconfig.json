@@ -20,6 +20,6 @@
       "@ptw/shared": ["../../packages/shared/src/index.ts"]
     }
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx", "src/test"]
 }
