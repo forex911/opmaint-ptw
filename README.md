@@ -278,8 +278,8 @@ npm run dev
 Current test counts verified directly against the codebase:
 
 ```text
-Test Files  20 passed (20)
-Tests       267 passed (267)
+Test Files  21 passed (21)
+Tests       268 passed (268)
 Typecheck   0 errors across @ptw/shared, @ptw/api, @ptw/web
 ```
 
@@ -297,7 +297,7 @@ Typecheck   0 errors across @ptw/shared, @ptw/api, @ptw/web
   - `permits.contract.test.ts` (2 tests): API response DTO contract conformance.
   - `env.test.ts` (8 tests): Environment variable validation.
   - `permits.pagination.test.ts` (1 test): Pagination metadata.
-- `@ptw/web` (33 tests): API client, error boundary, status badges, dynamic checklists, equipment cascading, pagination controls.
+- `@ptw/web` (34 tests): API client, error boundary, status badges, dynamic checklists, equipment cascading, pagination controls, session reload verification.
 
 ---
 

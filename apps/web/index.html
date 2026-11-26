@@ -12,7 +12,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
   <body class="bg-[#F5F7FA] text-[#172033] antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle at center, #0B1E19 0%, #06130E 100%); font-family: 'Plus Jakarta Sans', system-ui, sans-serif;">
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center;">
+          <div style="position: relative; padding: 4px; border-radius: 18px; background: rgba(6, 78, 59, 0.4); border: 1px solid rgba(16, 185, 129, 0.4); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+            <img src="/logo.png" alt="OPMAINT Logo" style="width: 56px; height: 56px; border-radius: 14px; display: block;" />
+          </div>
+          <div>
+            <div style="font-size: 20px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">OPMAINT</div>
+            <div style="font-size: 10px; font-weight: 700; color: #34d399; letter-spacing: 0.15em; text-transform: uppercase; margin-top: 3px;">Permit to Work Safety System</div>
+          </div>
+          <div style="display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px; border-radius: 9999px; background: rgba(6, 78, 59, 0.5); border: 1px solid rgba(16, 185, 129, 0.3); color: #a7f3d0; font-size: 12px; font-weight: 600;">
+            <div style="width: 13px; height: 13px; border: 2px solid #34d399; border-top-color: transparent; border-radius: 50%; animation: opmaintSpin 0.9s linear infinite;"></div>
+            <span>Loading workspace...</span>
+          </div>
+        </div>
+      </div>
+      <style>
+        @keyframes opmaintSpin {
+          to { transform: rotate(360deg); }
+        }
+      </style>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

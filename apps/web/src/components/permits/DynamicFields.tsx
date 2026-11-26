@@ -77,8 +77,8 @@ export const DynamicFields: React.FC<DynamicFieldsProps> = ({
               value={value || ''}
               onChange={(e) => onChange(field.key, e.target.value)}
               disabled={readOnly}
-              className={`w-full px-3.5 py-2 text-sm text-[#172033] bg-white border rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 ${
-                fieldError ? 'border-red-500' : 'border-[#E2E8F0] focus:border-[#2563EB]'
+              className={`w-full px-3.5 py-2 text-sm text-[#172033] bg-white border rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/20 ${
+                fieldError ? 'border-red-500' : 'border-[#E2E8F0] focus:border-emerald-600'
               }`}
             >
               <option value="">Select an option...</option>
@@ -101,7 +101,7 @@ export const DynamicFields: React.FC<DynamicFieldsProps> = ({
               checked={!!value}
               onChange={(e) => onChange(field.key, e.target.checked)}
               disabled={readOnly}
-              className="w-4 h-4 text-[#2563EB] rounded border-slate-300 focus:ring-[#2563EB]"
+              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
             />
             <label htmlFor={field.key} className="text-sm font-medium text-[#172033] cursor-pointer">
               {field.label}
@@ -164,7 +164,7 @@ export const DynamicFields: React.FC<DynamicFieldsProps> = ({
               <button
                 type="button"
                 onClick={() => onChange(field.key, [...listItems, ''])}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#2563EB] hover:underline pt-1"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600 hover:underline pt-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>Add Item</span>
