@@ -5,7 +5,7 @@ services:
     plan: free
     region: oregon
     branch: main
-    buildCommand: npm ci && npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/api build
+    buildCommand: npm ci && npm run build:api
     preDeployCommand: npm run db:migrate
     startCommand: node apps/api/dist/index.js
     healthCheckPath: /health

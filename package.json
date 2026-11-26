@@ -16,6 +16,8 @@
     "typecheck": "npm run --workspaces --if-present typecheck",
     "lint": "npm run --workspaces --if-present lint",
     "build": "npm run --workspace=@ptw/shared build && npm run --workspaces --if-present build",
+    "build:api": "npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/api build",
+    "build:web": "npm run --workspace=@ptw/shared build && npm run --workspace=@ptw/web build",
     "test": "npm run --workspaces --if-present test",
     "db:migrate": "npm run --workspace=@ptw/api db:migrate",
     "db:seed": "npm run --workspace=@ptw/api db:seed",
@@ -23,7 +25,7 @@
     "db:seed:remote": "npm run --workspace=@ptw/api db:seed",
     "smoke:deploy": "node scripts/post-deploy-smoke.js"
   },
-  "devDependencies": {
+  "dependencies": {
     "typescript": "^5.5.4"
   }
 }
