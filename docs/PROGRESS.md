@@ -718,3 +718,40 @@ This append-only log tracks every stage, unit of work, verification result, and 
 
 
 
+
+---
+
+## [2026-11-26 15:50] docs/final-readme / Final Root README for Submission
+- **Goal**: Write the comprehensive, engineer-to-engineer final root `README.md` for submission review by Tanzeel at Opmaint.
+- **Done**:
+  - Re-verified all test counts across the repository via live test executions:
+    - `@ptw/shared`: 6/6 tests passing (1 test suite).
+    - `@ptw/api`: 228/228 tests passing (12 test suites).
+    - `@ptw/web`: 33/33 tests passing (7 test suites).
+    - Monorepo Total: 267/267 tests passing (20 test suites), 0 typecheck errors.
+  - Aligned test fixtures in `integration-workflows.test.ts`, `permits.test.ts`, `spec-compliance.test.ts`, and `schema.test.ts` to query matching area owners for strict D-014 authorization and isolation.
+  - Completely rewrote root `README.md` (377 lines, within 350-500 line target) covering all 18 structured sections:
+    1. Title + one-sentence description + CI badge.
+    2. Live demo (Vercel, Render health, GitHub) + demo accounts table with free-tier warm-up note.
+    3. 60-second reviewer tour (happy path + 3 edge case rejections with error codes).
+    4. Monorepo architecture diagram and one-line technology choices.
+    5. Data model ERD, JSONB details explanation, and code snippet showing 5th permit type (`EXCAVATION`) runtime registry entry with zero migrations.
+    6. State machine transition table, diagram, invariants, concurrency row locks, and dual-tier expiry engine.
+    7. Roles & permissions matrix with Four-Eyes principle, D-014 area owner snapshot, and HTTP error semantics.
+    8. Tamper-evident audit trail triggers, permission revocation, and honest threat model.
+    9. Domain decisions (60-min gas freshness, re-verification on activation, work logs only while active, terminal expiry).
+    10. Assumptions & specification gaps (D-020 read visibility, D-021 in-flight approval resets, D-025 equipment mandatory on submit).
+    11. Clean local setup and copy-paste run instructions with Windows notes.
+    12. Decoupled production deployment architecture (Neon, Render, Vercel reverse proxy, external sweeper cron).
+    13. Real automated test breakdown by file and count.
+    14. Transparent scope status table (done vs deferred).
+    15. Top 5 future enhancements prioritized by engineering value.
+    16. Honest AI usage disclosure and specific reviewer-caught bugs.
+    17. Top 3 known issues and mitigations.
+    18. Repository folder map and docs index.
+  - Verified all internal markdown links and URLs.
+- **Verification**:
+  - `npm run typecheck` -> 0 errors.
+  - `npm test` -> 267/267 tests passing (100% green).
+  - Line count -> 377 lines.
+  - Link check script -> All relative links resolve to existing files.
