@@ -139,6 +139,22 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Correction 2 (Premature Plant Auto-Select)**: `CreatePermitPage` initially auto-selected the first plant via `useEffect`, interfering with manual cascade testing. Removed auto-selection to require explicit user choice with clear placeholders.
   - **Correction 3 (Blind Pagination Reset on Next Button)**: In `PermitsListPage.tsx`, `updateFilter` called `next.set('page', '1')` on every filter update. When the user clicked "Next" (`updateFilter('page', '2')`), `page` was immediately overwritten back to `'1'`. Fixed by guarding with `if (key !== 'page') next.set('page', '1')`.
 
+---
+
+## Feature: Admin User, Location & Activity Management (`feat/admin-management`)
+
+- **AI-Assisted Deliverables**:
+  - Migration `0004_admin_management_and_audit_log.sql` + Drizzle schemas (`isActive`, `admin_audit_log` row/truncate triggers & `ptw_app_user` grants/revokes).
+  - Pure guards (`admin.guards.ts`), transactional service (`admin.service.ts`), controller/routes, `adminRateLimiter`, standardized shared DTOs/schemas (`packages/shared`).
+  - Frontend `/admin` UI (`AdminPage.tsx`, `AdminRoute.tsx`, `UsersTab`, `PlantsTab`, `AreasTab`, `EquipmentTab`, `ActivityTab`) with 390px mobile card views and test suites (`admin.test.ts`, `AdminRoute.test.tsx`, `AdminPage.test.tsx`).
+- **Human Review & Corrections**:
+  - **DTO Field Cleanup**: Removed non-DB alias fields (`UserDto.plantId`/`department`/`createdAt`, `EquipmentDto.description`/`tagNo`, `active?`, `areaOwner`) and standardized on `isActive`, `ownerId`, `ownerName`, `ownerEmail`, and `tag`.
+  - **Auth Error Code Alignment**: Kept existing `requireRole('ADMIN')` (`403 FORBIDDEN`) on `/api/admin/*` instead of introducing `ROLE_NOT_ALLOWED`, reserving `409` codes for admin domain conflicts.
+  - **Dynamic Handover (`D-028` amending `D-014`)**: Changed area owner updates to reassign `PENDING` `AREA_OWNER` rows on non-terminal permits atomically rather than stranding approvals with deactivated owners.
+  - **Integration Test FK Hygiene**: Adjusted `admin.test.ts` so permit-creating tests run against seeded locations (cleaned via cancel + ownership restore) and no scratch user writes `actor_id` FKs into immutable `admin_audit_log`, preserving exact seed counts (`5 / 3 / 8 / 26`) verified by `schema.test.ts`.
+  - **Async Test Timing**: Added `waitFor` around paginated audit log assertions in `AdminPage.test.tsx` and verified Neon `ptw_app_user` insert/select grants explicitly on a fresh database.
+
+
 
 
 

@@ -29,6 +29,13 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 - `409 EARLY_ACTIVATION`: Cannot activate permit before `plannedStart`.
 - `409 STALE_GAS_TEST`: For `CONFINED_SPACE` permits, atmospheric gas test must be verified within 60 minutes of activation (D-010).
 - `409 PENDING_APPROVALS`: All approval tiers must be `APPROVED` before activation.
+- `409 CANNOT_MODIFY_SELF`: Admin cannot demote their own role or deactivate their own account.
+- `409 LAST_ADMIN`: Cannot demote or deactivate the last remaining active `ADMIN`.
+- `409 REASSIGN_AREAS_FIRST`: Cannot remove `AREA_OWNER` role or deactivate an owner while they still own areas (`details.areas` lists owned areas).
+- `409 EMAIL_TAKEN`: Email address already belongs to an existing user account.
+- `409 CODE_TAKEN`: Duplicate plant code, duplicate area code within the same plant, or duplicate equipment tag.
+- `409 HAS_OPEN_PERMITS`: Cannot deactivate a plant, area, or equipment item referenced by non-terminal permits (`details.permitNos` lists affected permits).
+- `409 HAS_ACTIVE_CHILDREN`: Cannot deactivate a plant with active areas or an area with active equipment (no cascade deactivation per `D-029`).
 - `422 VALIDATION_ERROR`: Zod validation failure. Details include `{ path, message, code }[]`.
 - `422 MISSING_COMPLETION_NOTES`: Mandatory completion notes required when closing a permit (D-005).
 - `422 MISSING_COMMENT`: Mandatory comment required for `reject`, `suspend`, and `cancel` (D-005).
@@ -44,9 +51,23 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 | `POST` | `/api/auth/logout` | Authenticated | Clear session cookie |
 | `GET` | `/api/auth/me` | Authenticated | Return currently authenticated user profile |
 | `GET` | `/health` | Public | Service health and timestamp check |
-| `GET` | `/api/plants` | Authenticated | List all plants |
-| `GET` | `/api/areas` | Authenticated | List areas (optional `?plantId=<uuid>`) |
-| `GET` | `/api/equipment` | Authenticated | List equipment (optional `?areaId=<uuid>`) |
+| `GET` | `/api/plants` | Authenticated | List active plants (`?includeInactive=true` allowed for `ADMIN` only -> `403 FORBIDDEN` otherwise) |
+| `GET` | `/api/areas` | Authenticated | List active areas in active plants (optional `?plantId=<uuid>`, `ADMIN`-only `?includeInactive=true`) |
+| `GET` | `/api/equipment` | Authenticated | List active equipment in active areas/plants (optional `?areaId=<uuid>`, `ADMIN`-only `?includeInactive=true`) |
+| `GET` | `/api/admin/users` | `ADMIN` | List all users (active and deactivated) with owned areas |
+| `POST` | `/api/admin/users` | `ADMIN` | Create user (`409 EMAIL_TAKEN`, min 12-char password) |
+| `PATCH` | `/api/admin/users/:id` | `ADMIN` | Update user name, role, `isActive`, or `areaIds` (`409 CANNOT_MODIFY_SELF`, `LAST_ADMIN`, `REASSIGN_AREAS_FIRST`) |
+| `POST` | `/api/admin/users/:id/reset-password` | `ADMIN` | Reset user password (min 12 chars, scrubbed from audit log) |
+| `GET` | `/api/admin/plants` | `ADMIN` | List all plants (including deactivated) with `areaCount` |
+| `POST` | `/api/admin/plants` | `ADMIN` | Create plant (`409 CODE_TAKEN`) |
+| `PATCH` | `/api/admin/plants/:id` | `ADMIN` | Update/deactivate/reactivate plant (`409 CODE_TAKEN`, `HAS_OPEN_PERMITS`, `HAS_ACTIVE_CHILDREN`) |
+| `GET` | `/api/admin/areas` | `ADMIN` | List all areas (optional `?plantId=<uuid>`) with owner and plant details |
+| `POST` | `/api/admin/areas` | `ADMIN` | Create area bound to active plant & active `AREA_OWNER` (`409 CODE_TAKEN`) |
+| `PATCH` | `/api/admin/areas/:id` | `ADMIN` | Update/reassign/deactivate area (`D-028` moves `PENDING` approvals on owner change) |
+| `GET` | `/api/admin/equipment` | `ADMIN` | List all equipment (optional `?areaId=<uuid>`) |
+| `POST` | `/api/admin/equipment` | `ADMIN` | Create equipment bound to active area (`409 CODE_TAKEN`) |
+| `PATCH` | `/api/admin/equipment/:id` | `ADMIN` | Update/deactivate/reactivate equipment (`409 CODE_TAKEN`, `HAS_OPEN_PERMITS`) |
+| `GET` | `/api/admin/activity` | `ADMIN` | Paginated append-only `admin_audit_log` (`?entityType=&page=&limit=`) |
 | `POST` | `/api/permits` | `REQUESTER`, `ADMIN` | Create a new permit in `DRAFT` status |
 | `GET` | `/api/permits` | Authenticated | List permits with server-side filters and pagination |
 | `GET` | `/api/permits/stats` | Authenticated | Dashboard metrics: byStatus, activeNow, expiringIn2h, pendingMyApproval |
@@ -392,6 +413,28 @@ When any permit in an expirable status (`APPROVED`, `ACTIVE`, `SUSPENDED`) is ac
       }
     }
     ```
+
+---
+
+## Implemented Admin Management Endpoints (`/api/admin/*`)
+
+All `/api/admin/*` endpoints require an authenticated session (`401 UNAUTHENTICATED`) with `role === 'ADMIN'` (`403 FORBIDDEN` via `requireRole(UserRole.ADMIN)`). Sensitive mutations (`POST /api/admin/users`, `POST /api/admin/users/:id/reset-password`) are additionally protected by `adminRateLimiter` (`429 RATE_LIMIT_EXCEEDED`). Every mutation runs inside a SQL transaction and appends a scrubbed event to `admin_audit_log`.
+
+### 10. Users Management
+- **`GET /api/admin/users`**: Returns `{ users: UserDto[] }` with `ownedAreas`.
+- **`POST /api/admin/users`**: Body `{ name, email, password, role, areaIds? }` (`password` >= 12 chars). Returns `201 { user }` or `409 EMAIL_TAKEN`. Note: `AREA_OWNER` users are not required to own an area at creation.
+- **`PATCH /api/admin/users/:id`**: Body `{ name?, role?, isActive?, areaIds? }`. Returns `200 { user }`.
+  - Guards: `409 CANNOT_MODIFY_SELF`, `409 LAST_ADMIN`, `409 REASSIGN_AREAS_FIRST` (includes `{ areas }` in `details`).
+- **`POST /api/admin/users/:id/reset-password`**: Body `{ password }` (>= 12 chars). Updates bcrypt hash and records `{ passwordUpdated: true }` in `admin_audit_log` (never hashes or secrets).
+
+### 11. Plants, Areas & Equipment Management
+- **`GET / POST / PATCH /api/admin/plants`**: Returns `{ plants }` / `{ plant }`. Guards: `409 CODE_TAKEN`, `409 HAS_OPEN_PERMITS`, `409 HAS_ACTIVE_CHILDREN`.
+- **`GET / POST / PATCH /api/admin/areas`**: Returns `{ areas }` / `{ area }`. Requires active `AREA_OWNER` (`422` otherwise). Changing `ownerId` executes `D-028` (atomically reassigning `PENDING` `AREA_OWNER` rows on non-terminal permits and writing `approver_reassigned` entries to `audit_log`).
+- **`GET / POST / PATCH /api/admin/equipment`**: Returns `{ equipment }` (`tag` standardized) / `{ equipment }`. Guards: `409 CODE_TAKEN`, `409 HAS_OPEN_PERMITS`.
+
+### 12. Admin Activity Audit Log
+- **`GET /api/admin/activity?entityType=USER|PLANT|AREA|EQUIPMENT&page=1&limit=20`**: Returns `{ items: AdminAuditLogDto[], pagination }` ordered newest-first.
+
 
 
 

@@ -6,10 +6,9 @@ This document tracks known limitations, intentional design trade-offs, and featu
 
 ## Active & Deferred Scope
 
-### 1. Frontend Web Application (`apps/web`) Out of Scope
-- **Description**: `apps/web` contains only a stub `package.json`. The user work order explicitly specifies that the frontend is out of scope for the current backend task and will be addressed in a separate frontend master prompt.
-- **Severity**: None (explicitly out of scope).
-- **Status**: Reserved for frontend implementation.
+### 1. Frontend Web Application (`apps/web`) Implementation Status
+- **Description**: `apps/web` implements the complete React 18 SPA including Login, Dashboard, Permits Registry, 5-step Permit Creation Wizard, Permit Detail lifecycle actions, and `/admin` Administration Console (replacing `/reference` via redirect).
+- **Status**: Implemented & verified via Vitest component tests (`41` tests); live browser visual inspection against production Neon/Render/Vercel after new PR merges is covered by manual QA steps.
 
 ### 2. State Machine Transitions & Guards (Completed in Stage 4)
 - **Description**: Central permit state machine with `SELECT ... FOR UPDATE` concurrency row locking, pure unit-testable guards, persistent lazy expiry, and Four-Eyes separation of duties (`D-019`) completed and verified with 105 tests in Stage 4 and Stage 4b.
@@ -53,6 +52,12 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Resolution**: Preserving original trees, parent topology, commit messages, and ISO timestamps, all 133 unique non-backup commits across `main`, 18 stage/fix branches, and 13 stage tags were unified onto a single root (`1dcb491`, leaving local `backup-main-before-rewrite` untouched) with author/committer set to `forex911 <207845669+forex911@users.noreply.github.com>` (GitHub's private-email noreply address, satisfying `GH007` email privacy enforcement).
 - **Push Mitigation**: Resolved `HTTP 408` push timeouts on cellular/Windows networks by aligning `http.sslbackend` to `schannel`, repacking (`git gc --aggressive --prune=now`), and force-pushing `main` in 3 chronological commit chunks (`--force --no-verify`) before pushing tags and remaining branches individually.
 - **Status**: Resolved; unified single-root history verified across all branches and tags.
+
+### 10. Admin Deactivation Without Cascade & Admin Audit Threat Model (`D-029`, `D-030`)
+- **Behavior**: Soft-deactivating a plant or area never cascades to child areas, equipment, or open permits. Administrators must resolve non-terminal permits (`HAS_OPEN_PERMITS`) and deactivate child entities (`HAS_ACTIVE_CHILDREN`) bottom-up before deactivating parents, and reassign areas (`REASSIGN_AREAS_FIRST`) before demoting or deactivating an `AREA_OWNER`.
+- **Audit Scope**: Like `audit_log` (`D-012`), `admin_audit_log` enforces append-only immutability for `ptw_app_user` via row/truncate triggers and revoked SQL privileges; database superusers retain DDL privileges unless external write-once log streaming is configured.
+- **UI Manual QA**: Phase 2 `/admin` frontend interactions and 390px responsiveness were verified via automated `@ptw/web` Vitest (`jsdom`) unit tests (`AdminRoute.test.tsx`, `AdminPage.test.tsx`), not live browser driving by the agent.
+
 
 
 
