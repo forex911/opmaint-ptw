@@ -10,6 +10,7 @@ import type { PermitDetailResponseDto, AuditLogEntryDto, PermitDto } from '@ptw/
 import { UserRole, PermitStatus } from '@ptw/shared';
 
 let currentRole = UserRole.REQUESTER;
+const mockNavigate = vi.fn();
 
 vi.mock('../context/AuthContext.js', () => ({
   useAuth: () => ({
@@ -26,7 +27,7 @@ vi.mock('react-router-dom', async () => {
   return {
     ...actual,
     useParams: () => ({ id: 'dc6d20c6-d639-43c6-a0c7-e66872f019af' }),
-    useNavigate: () => vi.fn(),
+    useNavigate: () => mockNavigate,
   };
 });
 
@@ -337,6 +338,49 @@ describe('PermitDetailPage Component', () => {
           comment: undefined,
         });
       });
+    });
+
+    it('Bug B: navigates from Edit Draft to full /permits/:id/edit wizard and exposes field-level 422 errors + quick fix navigation on submit', async () => {
+      currentRole = UserRole.REQUESTER;
+      mockNavigate.mockClear();
+
+      const mockDetail: PermitDetailResponseDto = {
+        permit: createMockPermit(PermitStatus.DRAFT),
+        approvals: [],
+        workLogs: [],
+        allowedActions: ['submit', 'cancel'],
+      };
+
+      vi.spyOn(clientModule.api, 'getPermit').mockResolvedValue(mockDetail as any);
+      vi.spyOn(clientModule.api, 'submitPermit').mockRejectedValue(
+        new clientModule.ApiError(422, 'VALIDATION_ERROR', 'Select equipment from the chosen area', {
+          equipmentId: ['Select equipment from the chosen area'],
+          extinguisher_type: ['Fire Extinguisher Type is required'],
+        })
+      );
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <PermitDetailPage />
+          </BrowserRouter>
+        </QueryClientProvider>
+      );
+
+      const editBtn = await screen.findByRole('button', { name: /Edit Draft/i });
+      expect(screen.getByRole('button', { name: /Submit for Approval/i })).toBeInTheDocument();
+
+      fireEvent.click(editBtn);
+      expect(mockNavigate).toHaveBeenCalledWith(`/permits/${mockDetail.permit.id}/edit`);
+
+      // Trigger submit error path from Detail Page
+      fireEvent.click(screen.getByRole('button', { name: /Submit for Approval/i }));
+      fireEvent.click(screen.getByRole('button', { name: /Confirm Submit for Approval/i }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Edit Draft & Fix Fields/i })).toBeInTheDocument();
+      });
+      expect(screen.getByText(/extinguisher_type/i)).toBeInTheDocument();
     });
   });
 });
