@@ -4,6 +4,9 @@ import type { PermitStatus, PermitAction, ApprovalStatus, WorkLogKind } from './
 import type { PermitTypeCode } from './registry/definitions.js';
 
 export const ApiErrorCode = {
+  // 400 Bad Request
+  MALFORMED_JSON: 'MALFORMED_JSON',
+
   // 401 Unauthorized
   UNAUTHENTICATED: 'UNAUTHENTICATED',
 
@@ -40,12 +43,17 @@ export const ApiErrorCode = {
   HAS_ACTIVE_CHILDREN: 'HAS_ACTIVE_CHILDREN',
   CONFLICT: 'CONFLICT',
 
+  // 413 Payload Too Large
+  PAYLOAD_TOO_LARGE: 'PAYLOAD_TOO_LARGE',
+
   // 422 Unprocessable Entity
   VALIDATION_ERROR: 'VALIDATION_ERROR',
+  INVALID_ID: 'INVALID_ID',
   INVALID_TIME_WINDOW: 'INVALID_TIME_WINDOW',
   LOCATION_HIERARCHY_INVALID: 'LOCATION_HIERARCHY_INVALID',
   MISSING_COMMENT: 'MISSING_COMMENT',
   MISSING_COMPLETION_NOTES: 'MISSING_COMPLETION_NOTES',
+  UNSAFE_ATMOSPHERE: 'UNSAFE_ATMOSPHERE',
 
   // 429 Too Many Requests
   RATE_LIMITED: 'RATE_LIMITED',

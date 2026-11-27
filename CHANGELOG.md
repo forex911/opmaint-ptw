@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.1] - 2026-11-27 - Stage 1 Audit Remediation (Server Correctness, Ownership & Gas Thresholds)
+
+### Fixed
+- **Shared UUID Parameter Validation (`I12`)**: Added `validateUuidParam` (`apps/api/src/middleware/validate.ts`) backed by one shared Zod UUID schema across all 13 `:id` permit routes and 5 `:id` admin routes, returning `422 INVALID_ID` instead of `500`.
+- **Body Size & Client Error Envelopes (`I10`)**: Configured `express.json({ limit: '100kb' })` in `apps/api/src/app.ts` and mapped `entity.too.large` (`413 PAYLOAD_TOO_LARGE`), `MALFORMED_JSON` (`400`), and 4xx client errors cleanly in `errorHandler`.
+- **Strict Ownership & Independent Closure Verification (`D1/I6`, `D-031`)**: Restricted `submit`, `activate`, `close`, and `cancel` to `permit.requesterId` or `ADMIN` (`403 NOT_PERMIT_OWNER`), keeping `SAFETY_OFFICER` on safety oversight (`approve`, `reject`, `suspend`, `resume`, `verify`) and own-created permits; added `guardClosureVerifySeparation` (`403 DUTIES_SEPARATION_VIOLATION` if verifier closed the permit).
+- **Mandatory Reason & Completion Notes (`C7/E4`)**: Enforced non-empty trimmed strings strictly on `reject`, `suspend`, `cancel` (`422 MISSING_COMMENT`) and `completionNotes` on `close` (`422 MISSING_COMPLETION_NOTES`, removing the `|| comment` fallback). Removed all auto-filled fallback strings in `PermitDetailPage.tsx`, disabled Confirm until valid trimmed text is supplied, and added inline hints.
+- **Submit-Only Shared Gas Safety Thresholds (`K1`, `D-032`)**: Exported `GAS_SAFETY_THRESHOLDS` and `evaluateGasThresholds()` from `@ptw/shared`, wired `DynamicFields.tsx` to read them (fixing false O2 alerts on `null`), and enforced limits server-side on `submit` returning `422 UNSAFE_ATMOSPHERE` with `details.offendingReadings`.
+
+### Added
+- Regression tests covering all 18 `:id` routes, 250kb payload / broken JSON handling, full `role x action x ownership` matrix, close/verify separation, whitespace/fallback rejection, and unsafe gas submissions (`audit-stage1-regressions.test.ts`, `schema-generator.test.ts`, `DynamicFields.test.tsx`, `PermitDetailPage.test.tsx`).
+
+---
+
 ## [0.8.0] - 2026-11-27 - Admin User, Location & Admin Console Management
 
 ### Added

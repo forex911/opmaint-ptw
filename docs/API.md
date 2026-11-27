@@ -17,13 +17,14 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 ```
 
 ### Standard Error Codes
+- `400 MALFORMED_JSON`: Malformed JSON syntax in request body.
 - `401 UNAUTHENTICATED`: Session missing or expired.
 - `403 FORBIDDEN`: Insufficient role or forbidden authorization action.
   - `SELF_APPROVAL_FORBIDDEN`: Actor cannot approve, reject, or verify their own permit.
   - `WRONG_AREA`: Area Owner can only approve permits for their assigned area.
   - `ROLE_NOT_ALLOWED`: User does not hold the required role for this transition.
-  - `NOT_PERMIT_OWNER`: Action restricted to the permit owner.
-  - `DUTIES_SEPARATION_VIOLATION`: Same individual cannot sign off multiple approval tiers on the same permit (D-019).
+  - `NOT_PERMIT_OWNER`: `submit`, `activate`, `close`, and `cancel` are restricted to `permit.requesterId` or `ADMIN` (`D-031`).
+  - `DUTIES_SEPARATION_VIOLATION`: Same individual cannot sign off multiple approval tiers (`D-019`) or verify a closure they executed (`D-031`).
 - `404 NOT_FOUND`: Resource does not exist.
 - `409 ILLEGAL_TRANSITION`: State transition not permitted in current lifecycle state (e.g. attempting to activate DRAFT or modify EXPIRED). Details include `{ from, action, allowedActions }`.
 - `409 EARLY_ACTIVATION`: Cannot activate permit before `plannedStart`.
@@ -36,9 +37,12 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 - `409 CODE_TAKEN`: Duplicate plant code, duplicate area code within the same plant, or duplicate equipment tag.
 - `409 HAS_OPEN_PERMITS`: Cannot deactivate a plant, area, or equipment item referenced by non-terminal permits (`details.permitNos` lists affected permits).
 - `409 HAS_ACTIVE_CHILDREN`: Cannot deactivate a plant with active areas or an area with active equipment (no cascade deactivation per `D-029`).
+- `413 PAYLOAD_TOO_LARGE`: JSON payload exceeds configured server body limit (`100kb`).
+- `422 INVALID_ID`: Invalid UUID syntax in `:id` route parameter.
 - `422 VALIDATION_ERROR`: Zod validation failure. Details include `{ path, message, code }[]`.
-- `422 MISSING_COMPLETION_NOTES`: Mandatory completion notes required when closing a permit (D-005).
-- `422 MISSING_COMMENT`: Mandatory comment required for `reject`, `suspend`, and `cancel` (D-005).
+- `422 UNSAFE_ATMOSPHERE`: Gas/atmosphere readings violate `GAS_SAFETY_THRESHOLDS` on permit submission (`D-032`; `details.offendingReadings` lists failing readings).
+- `422 MISSING_COMPLETION_NOTES`: Mandatory non-empty trimmed `completionNotes` (or `completion_notes`) required when closing a permit (D-005).
+- `422 MISSING_COMMENT`: Mandatory non-empty trimmed `comment` required for `reject`, `suspend`, and `cancel` (D-005).
 - `429 RATE_LIMITED`: Rate limit exceeded for authentication or sweep triggers.
 
 ---
@@ -154,15 +158,15 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 | `POST` | `/api/permits` | `REQUESTER`, `ADMIN` | Create new draft permit (permissive validation) |
 | `GET` | `/api/permits/:id` | Authenticated | Get permit details, approvals, work logs, and computed `allowedActions` |
 | `PATCH` | `/api/permits/:id` | Owner / Requester | Update permit (only `DRAFT` or `PENDING_APPROVAL` with approval reset) |
-| `POST` | `/api/permits/:id/submit` | Owner / Requester | Submit permit (strict validation & domain rules; creates approval rows) |
+| `POST` | `/api/permits/:id/submit` | Owner or `ADMIN` | Submit permit (strict validation, safe gas readings `UNSAFE_ATMOSPHERE`, creates approval rows) |
 | `POST` | `/api/permits/:id/approve` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | Approve a pending approval row (no self-approval) |
-| `POST` | `/api/permits/:id/reject` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | Reject permit with mandatory comment (no self-approval) |
-| `POST` | `/api/permits/:id/activate` | Owner or `SAFETY_OFFICER` | Activate approved permit when `now >= planned_start` and `now < planned_end` |
-| `POST` | `/api/permits/:id/suspend` | `SAFETY_OFFICER`, `ADMIN` | Suspend active permit with mandatory reason |
-| `POST` | `/api/permits/:id/resume` | `SAFETY_OFFICER` | Resume suspended permit if not expired |
-| `POST` | `/api/permits/:id/close` | Owner / Requester | Close active permit with mandatory completion notes |
-| `POST` | `/api/permits/:id/verify` | `SAFETY_OFFICER` | Verify closed permit (no self-verification) |
-| `POST` | `/api/permits/:id/cancel` | Owner, `SAFETY_OFFICER`, `ADMIN` | Cancel non-terminal permit with mandatory reason |
+| `POST` | `/api/permits/:id/reject` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | Reject permit with mandatory non-empty trimmed comment (no self-approval) |
+| `POST` | `/api/permits/:id/activate` | Owner or `ADMIN` | Activate approved permit when `now >= planned_start` and `now < planned_end` |
+| `POST` | `/api/permits/:id/suspend` | `SAFETY_OFFICER`, `ADMIN` | Suspend active permit with mandatory non-empty trimmed reason |
+| `POST` | `/api/permits/:id/resume` | `SAFETY_OFFICER`, `ADMIN` | Resume suspended permit if not expired |
+| `POST` | `/api/permits/:id/close` | Owner or `ADMIN` | Close active permit with mandatory non-empty trimmed `completionNotes` |
+| `POST` | `/api/permits/:id/verify` | Independent `SAFETY_OFFICER` or `ADMIN` | Verify closed permit (verifier cannot be requester or closer) |
+| `POST` | `/api/permits/:id/cancel` | Owner or `ADMIN` | Cancel non-terminal permit with mandatory non-empty trimmed reason |
 | `POST` | `/api/permits/:id/work-logs` | Authenticated | Add work log (`NOTE`, `ENTRY`, `EXIT`) — `ACTIVE` permits only |
 | `POST` | `/api/permits/:id/extensions` | Owner / Requester | Request permit extension (+N hours, max 4h, max 1 extension) |
 | `POST` | `/api/permits/:id/extensions/:extId/decision` | `SAFETY_OFFICER` | Approve or reject extension request |
@@ -181,15 +185,15 @@ All mutations execute inside a PostgreSQL transaction using `SELECT ... FOR UPDA
 
 | Action | Allowed From Statuses | Target Status | Permitted Roles | Required Guards |
 |---|---|---|---|---|
-| `submit` | `DRAFT` | `PENDING_APPROVAL` | `REQUESTER`, `ADMIN` | Requester ownership, Window check (`end > start`), Submit schema validation (gas test, precautions) |
+| `submit` | `DRAFT` | `PENDING_APPROVAL` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership or `ADMIN` (`D-031`), Window check (`end > start`), Submit schema validation & safe gas thresholds (`422 UNSAFE_ATMOSPHERE`) |
 | `approve` | `PENDING_APPROVAL` | `APPROVED` (or remains `PENDING_APPROVAL`) | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | No self-approval, Area Owner assignment, Pending tier exists, Separation of duties (D-019) |
-| `reject` | `PENDING_APPROVAL` | `REJECTED` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | No self-action, Area Owner assignment, Mandatory comment |
-| `activate` | `APPROVED` | `ACTIVE` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership, Current time within window (`start <= now < end`), All approvals `APPROVED`, Confined Space gas test <= 60m (D-010) |
-| `suspend` | `ACTIVE` | `SUSPENDED` | `SAFETY_OFFICER`, `ADMIN` | Mandatory comment/reason |
+| `reject` | `PENDING_APPROVAL` | `REJECTED` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | No self-action, Area Owner assignment, Mandatory non-empty trimmed comment |
+| `activate` | `APPROVED` | `ACTIVE` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership or `ADMIN` (`D-031`), Current time within window (`start <= now < end`), All approvals `APPROVED`, Confined Space gas test <= 60m (D-010) |
+| `suspend` | `ACTIVE` | `SUSPENDED` | `SAFETY_OFFICER`, `ADMIN` | Mandatory non-empty trimmed comment/reason |
 | `resume` | `SUSPENDED` | `ACTIVE` | `SAFETY_OFFICER`, `ADMIN` | Not expired (`now < planned_end`) |
-| `close` | `ACTIVE` | `CLOSED` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership, Mandatory completion notes |
-| `verify` | `CLOSED` | `CLOSED_VERIFIED` | `SAFETY_OFFICER`, `ADMIN` | No self-verification (verifier cannot be the permit requester) |
-| `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `SUSPENDED` | `CANCELLED` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership, Mandatory comment |
+| `close` | `ACTIVE` | `CLOSED` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership or `ADMIN` (`D-031`), Mandatory non-empty trimmed `completionNotes` |
+| `verify` | `CLOSED` | `CLOSED_VERIFIED` | `SAFETY_OFFICER`, `ADMIN` | No self-verification (`requesterId`) and closer separation (`D-031`: `closedBy !== actor.id`) |
+| `cancel` | `DRAFT`, `PENDING_APPROVAL`, `APPROVED`, `SUSPENDED` | `CANCELLED` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Requester ownership or `ADMIN` (`D-031`), Mandatory non-empty trimmed comment |
 | `expire` | `APPROVED`, `ACTIVE`, `SUSPENDED` | `EXPIRED` | `SYSTEM`, `ADMIN` | None (automated lazy expiry or cron sweeper) |
 
 ### Persistent Lazy Expiry

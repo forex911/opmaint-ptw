@@ -72,4 +72,45 @@ describe('DynamicFields Component', () => {
       screen.getByText(/O2 concentration is outside safe atmospheric range/i)
     ).toBeInTheDocument();
   });
+
+  it('does not display false O2 alert when o2_pct is null/empty and alerts when H2S or CO exceed safe limits', () => {
+    const emptyValues = {
+      atmosphere_test: {
+        lel_pct: null,
+        o2_pct: null,
+        h2s_ppm: null,
+        co_ppm: null,
+      },
+    };
+
+    const { rerender } = render(
+      <DynamicFields
+        type={PermitTypeCode.CONFINED_SPACE}
+        values={emptyValues}
+        onChange={() => {}}
+      />
+    );
+
+    expect(
+      screen.queryByText(/O2 concentration is outside safe atmospheric range/i)
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <DynamicFields
+        type={PermitTypeCode.CONFINED_SPACE}
+        values={{
+          atmosphere_test: {
+            lel_pct: 0,
+            o2_pct: 20.9,
+            h2s_ppm: 12,
+            co_ppm: 40,
+          },
+        }}
+        onChange={() => {}}
+      />
+    );
+
+    expect(screen.getByText(/H2S exceeds 10 ppm/i)).toBeInTheDocument();
+    expect(screen.getByText(/CO concentration exceeds 35 ppm/i)).toBeInTheDocument();
+  });
 });

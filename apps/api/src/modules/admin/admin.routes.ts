@@ -1,8 +1,7 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import { adminController } from './admin.controller.js';
 import { requireAuth, requireRole } from '../../middleware/auth.js';
-import { validate } from '../../middleware/validate.js';
+import { validate, validateUuidParam } from '../../middleware/validate.js';
 import { adminRateLimiter } from '../../middleware/rate-limit.js';
 import {
   UserRole,
@@ -17,10 +16,6 @@ import {
   updateEquipmentSchema,
   listAdminActivityQuerySchema,
 } from '@ptw/shared';
-
-const idParamSchema = z.object({
-  id: z.string().uuid('Invalid resource ID format'),
-});
 
 export const adminRouter = Router();
 
@@ -39,13 +34,15 @@ adminRouter.post(
 );
 adminRouter.patch(
   '/users/:id',
-  validate({ params: idParamSchema, body: updateUserSchema }),
+  validateUuidParam,
+  validate({ body: updateUserSchema }),
   (req, res, next) => adminController.updateUser(req, res, next)
 );
 adminRouter.post(
   '/users/:id/reset-password',
+  validateUuidParam,
   sensitiveUserLimiter,
-  validate({ params: idParamSchema, body: resetPasswordSchema }),
+  validate({ body: resetPasswordSchema }),
   (req, res, next) => adminController.resetPassword(req, res, next)
 );
 
@@ -58,7 +55,8 @@ adminRouter.post(
 );
 adminRouter.patch(
   '/plants/:id',
-  validate({ params: idParamSchema, body: updatePlantSchema }),
+  validateUuidParam,
+  validate({ body: updatePlantSchema }),
   (req, res, next) => adminController.updatePlant(req, res, next)
 );
 
@@ -71,7 +69,8 @@ adminRouter.post(
 );
 adminRouter.patch(
   '/areas/:id',
-  validate({ params: idParamSchema, body: updateAreaSchema }),
+  validateUuidParam,
+  validate({ body: updateAreaSchema }),
   (req, res, next) => adminController.updateArea(req, res, next)
 );
 
@@ -84,7 +83,8 @@ adminRouter.post(
 );
 adminRouter.patch(
   '/equipment/:id',
-  validate({ params: idParamSchema, body: updateEquipmentSchema }),
+  validateUuidParam,
+  validate({ body: updateEquipmentSchema }),
   (req, res, next) => adminController.updateEquipment(req, res, next)
 );
 

@@ -136,6 +136,17 @@ export async function transition(
     );
     let approvals: PermitApproval[] = approvalsRes.rows.map(mapApprovalRow);
 
+    let closedBy: string | null = null;
+    if (permit.status === PermitStatus.CLOSED) {
+      const closeAuditRes = await client.query<{ actor_id: string | null }>(
+        `SELECT actor_id FROM audit_log
+         WHERE permit_id = $1 AND action = 'close'
+         ORDER BY created_at DESC LIMIT 1`,
+        [permitId]
+      );
+      closedBy = closeAuditRes.rows[0]?.actor_id ?? null;
+    }
+
     // 3. Persistent Lazy Expiry Check
     // If permit is in an expirable state and planned_end has passed, transition to EXPIRED
     const expirableStatuses: readonly string[] = [
@@ -203,7 +214,7 @@ export async function transition(
 
     if (rulesForActionFromStatus.length === 0) {
       await rollback();
-      const allowedActions = getAllowedActions(permit, actor, approvals, now);
+      const allowedActions = getAllowedActions(permit, actor, approvals, now, { closedBy });
       throw new AppError(
         409,
         'ILLEGAL_TRANSITION',
@@ -222,7 +233,7 @@ export async function transition(
 
     if (!matchedRule) {
       await rollback();
-      const allowedActions = getAllowedActions(permit, actor, approvals, now);
+      const allowedActions = getAllowedActions(permit, actor, approvals, now, { closedBy });
       throw new AppError(
         403,
         'ROLE_NOT_ALLOWED',
@@ -243,6 +254,7 @@ export async function transition(
       actor,
       payload,
       approvals,
+      closedBy,
       now,
     };
 
@@ -250,11 +262,12 @@ export async function transition(
       const guardResult = guard(ctx);
       if (!guardResult.ok) {
         await rollback();
-        const allowedActions = getAllowedActions(permit, actor, approvals, now);
+        const allowedActions = getAllowedActions(permit, actor, approvals, now, { closedBy });
         throw createGuardAppError(guardResult.code, guardResult.message, {
           from: permit.status,
           action,
           allowedActions,
+          ...(guardResult.details && typeof guardResult.details === 'object' ? guardResult.details : {}),
         });
       }
     }

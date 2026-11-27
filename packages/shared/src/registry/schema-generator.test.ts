@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import * as definitionsModule from './definitions.js';
 import {
   PermitTypeCode,
   registerPermitType,
@@ -196,6 +197,102 @@ describe('Permit Type Registry & Dynamic Schema Generator', () => {
         'submit'
       );
       expect(passResult.valid).toBe(true);
+    });
+  });
+
+  describe('Shared Gas Safety Thresholds & Submit Enforcement (K1)', () => {
+    it('exports canonical GAS_SAFETY_THRESHOLDS constant', () => {
+      const thresholds = (definitionsModule as any).GAS_SAFETY_THRESHOLDS;
+      expect(thresholds).toEqual({
+        lelMaxPct: 10,
+        o2MinPct: 19.5,
+        o2MaxPct: 23.5,
+        h2sMaxPpm: 10,
+        coMaxPpm: 35,
+      });
+    });
+
+    it('rejects HOT_WORK submit with unsafe gas readings (UNSAFE_ATMOSPHERE) while keeping draft permissive', () => {
+      const plannedStart = new Date(Date.now() + 30 * 60 * 1000);
+      const unsafeDetails = {
+        hot_work_type: 'welding',
+        fire_watch_assigned: true,
+        extinguisher_type: 'CO2 5kg',
+        combustibles_cleared_radius_m: 10,
+        gas_test: {
+          lel_pct: 12,
+          o2_pct: 18.2,
+          tested_at: new Date().toISOString(),
+        },
+      };
+
+      const draftResult = validatePermitDetails(
+        PermitTypeCode.HOT_WORK,
+        unsafeDetails,
+        'draft',
+        { plannedStart, plannedEnd: new Date(plannedStart.getTime() + 3600000) }
+      );
+      expect(draftResult.valid).toBe(true);
+
+      const submitResult = validatePermitDetails(
+        PermitTypeCode.HOT_WORK,
+        unsafeDetails,
+        'submit',
+        { plannedStart, plannedEnd: new Date(plannedStart.getTime() + 3600000) }
+      );
+      expect(submitResult.valid).toBe(false);
+      expect(
+        submitResult.issues.some((i: ValidationIssue) => i.code === 'UNSAFE_ATMOSPHERE')
+      ).toBe(true);
+      expect(
+        submitResult.issues.map((i: ValidationIssue) => i.path.join('.'))
+      ).toEqual(expect.arrayContaining(['gas_test.lel_pct', 'gas_test.o2_pct']));
+    });
+
+    it('rejects CONFINED_SPACE submit with unsafe O2, H2S, or CO readings while keeping draft permissive', () => {
+      const plannedStart = new Date(Date.now() + 30 * 60 * 1000);
+      const unsafeDetails = {
+        space_id: 'CS-TANK-01',
+        entry_point: 'Manhole A',
+        atmosphere_test: {
+          o2_pct: 24.1,
+          lel_pct: 0,
+          h2s_ppm: 15,
+          co_ppm: 42,
+          tested_at: new Date(plannedStart.getTime() - 10 * 60 * 1000).toISOString(),
+        },
+        standby_attendant: 'John Doe',
+        rescue_plan: 'ERP-CS-001',
+        ventilation_method: 'forced_mechanical',
+      };
+
+      const draftResult = validatePermitDetails(
+        PermitTypeCode.CONFINED_SPACE,
+        unsafeDetails,
+        'draft',
+        { plannedStart, plannedEnd: new Date(plannedStart.getTime() + 3600000) }
+      );
+      expect(draftResult.valid).toBe(true);
+
+      const submitResult = validatePermitDetails(
+        PermitTypeCode.CONFINED_SPACE,
+        unsafeDetails,
+        'submit',
+        { plannedStart, plannedEnd: new Date(plannedStart.getTime() + 3600000) }
+      );
+      expect(submitResult.valid).toBe(false);
+      expect(
+        submitResult.issues.some((i: ValidationIssue) => i.code === 'UNSAFE_ATMOSPHERE')
+      ).toBe(true);
+      expect(
+        submitResult.issues.map((i: ValidationIssue) => i.path.join('.'))
+      ).toEqual(
+        expect.arrayContaining([
+          'atmosphere_test.o2_pct',
+          'atmosphere_test.h2s_ppm',
+          'atmosphere_test.co_ppm',
+        ])
+      );
     });
   });
 });

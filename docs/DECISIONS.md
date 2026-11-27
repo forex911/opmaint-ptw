@@ -410,6 +410,32 @@ This log records every architectural decision, rejected alternative, and trade-o
   - Same tamper-evidence guarantees (and superuser threat model documented in `D-012`) apply to administrative changes, viewable chronologically via `GET /api/admin/activity`.
 - **Status**: Accepted
 
+---
+
+### D-031 Strict Permit Ownership (`submit`, `activate`, `close`) & Independent Closure Verification
+- **Context**: `guardRequesterOwnership` previously checked `ctx.actor.role === UserRole.REQUESTER && ctx.actor.id !== ctx.permit.requesterId`, which unintentionally permitted any `SAFETY_OFFICER` to submit, activate, or close another user's permit. Conversely, granting `ADMIN` full override access to close a requester's permit allowed that same `ADMIN` to immediately verify their own closure because `guardNoSelfAction` only checked `actor.id === permit.requesterId`.
+- **Options considered**:
+  - *Option A*: Leave `SAFETY_OFFICER` able to activate/close others' permits and only check `requesterId` during `verify`. (Rejected: violates permit-holder accountability and allows single-actor close+verify bypass by `ADMIN`.)
+  - *Option B*: Enforce `actor.role !== UserRole.ADMIN && actor.id !== permit.requesterId -> 403 NOT_PERMIT_OWNER` across `submit`, `activate`, `close`, and `cancel`, while retaining `SAFETY_OFFICER` authority on safety actions (`approve`, `reject`, `suspend`, `resume`, `verify`) and permits the officer personally created. Add `guardClosureVerifySeparation` querying the latest `audit_log` `'close'` actor for `CLOSED` permits so nobody (including `ADMIN`) can `verify` a permit they themselves closed (`403 DUTIES_SEPARATION_VIOLATION`, and `'verify'` omitted from `allowedActions`).
+- **Decision**: Option B — Owner-or-Admin execution for holder lifecycle steps and strict closer/verifier separation of duties.
+- **Consequences**:
+  - Permit holders remain strictly accountable for job readiness (`submit`, `activate`) and field completion (`close`), with `ADMIN` escape-hatch preserved.
+  - Even when an `ADMIN` closes a permit in an emergency, an independent `SAFETY_OFFICER` or second `ADMIN` must sign off `CLOSED_VERIFIED`.
+- **Status**: Accepted
+
+---
+
+### D-032 Shared Submit-Time Atmospheric Gas Safety Thresholds (`UNSAFE_ATMOSPHERE`)
+- **Context**: `DynamicFields.tsx` rendered client-side threshold alerts (`LEL > 10%`, `O2 < 19.5% || > 23.5%`, `H2S > 10 ppm`, `CO > 35 ppm`), and `Number(null) < 19.5` triggered false O2 alerts on empty fields, while the backend API allowed unsafe atmospheric readings to pass submission.
+- **Options considered**:
+  - *Option A*: Enforce thresholds inside draft creation/update (`POST`/`PATCH`) as well as submit. (Rejected: prevents operators from saving incomplete or intermediate draft calibrations while troubleshooting equipment.)
+  - *Option B*: Export a single `GAS_SAFETY_THRESHOLDS` constant and `evaluateGasThresholds()` helper from `@ptw/shared`, read it from `DynamicFields.tsx` (guarding `null`/empty inputs), and enforce it exclusively in `validatePermitDetails(..., 'submit')` rules for `HOT_WORK` (`gas_test`) and `CONFINED_SPACE` (`atmosphere_test`), mapping failures in `guardSubmitDetails` / `transition-engine.ts` to HTTP `422 UNSAFE_ATMOSPHERE` with structured `details.offendingReadings`.
+- **Decision**: Option B — Single shared threshold source enforced strictly at submission while keeping drafts permissive.
+- **Consequences**:
+  - UI warnings and API enforcement cannot drift out of sync.
+  - Thresholds are currently shared across facilities; per-plant industrial hygiene tolerances would move into database configuration if multi-site policies diverge.
+- **Status**: Accepted
+
 
 
 

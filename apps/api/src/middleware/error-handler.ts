@@ -53,10 +53,33 @@ export function errorHandler(
       formattedErrors[fieldPath].push(issue.message);
     }
     details = formattedErrors;
-  } else if (err instanceof SyntaxError && 'status' in err && (err as { status: number }).status === 400) {
+  } else if (
+    err !== null &&
+    typeof err === 'object' &&
+    (('status' in err && (err as { status: unknown }).status === 413) ||
+      ('type' in err && (err as { type: unknown }).type === 'entity.too.large'))
+  ) {
+    statusCode = 413;
+    code = 'PAYLOAD_TOO_LARGE';
+    message = 'Request payload exceeds maximum allowed size (100kb)';
+  } else if (
+    (err instanceof SyntaxError && 'status' in err && (err as { status: unknown }).status === 400) ||
+    (err !== null && typeof err === 'object' && 'type' in err && (err as { type: unknown }).type === 'entity.parse.failed')
+  ) {
     statusCode = 400;
     code = 'MALFORMED_JSON';
     message = 'Malformed JSON payload in request body';
+  } else if (
+    err !== null &&
+    typeof err === 'object' &&
+    'status' in err &&
+    typeof (err as { status: unknown }).status === 'number' &&
+    (err as { status: number }).status >= 400 &&
+    (err as { status: number }).status < 500
+  ) {
+    statusCode = (err as { status: number }).status;
+    code = statusCode === 400 ? 'BAD_REQUEST' : 'CLIENT_ERROR';
+    message = err instanceof Error && err.message ? err.message : 'Invalid client request';
   } else if (err instanceof Error) {
     // Unexpected Error in non-production
     message = err.message || message;
