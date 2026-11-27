@@ -154,6 +154,20 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Integration Test FK Hygiene**: Adjusted `admin.test.ts` so permit-creating tests run against seeded locations (cleaned via cancel + ownership restore) and no scratch user writes `actor_id` FKs into immutable `admin_audit_log`, preserving exact seed counts (`5 / 3 / 8 / 26`) verified by `schema.test.ts`.
   - **Async Test Timing**: Added `waitFor` around paginated audit log assertions in `AdminPage.test.tsx` and verified Neon `ptw_app_user` insert/select grants explicitly on a fresh database.
 
+---
+
+## Stage 1 Audit Remediation (`fix/audit-server-correctness`)
+
+- **AI-Assisted Deliverables**:
+  - Shared error codes (`INVALID_ID`, `PAYLOAD_TOO_LARGE`, `MALFORMED_JSON`, `UNSAFE_ATMOSPHERE`) and `GAS_SAFETY_THRESHOLDS` + `evaluateGasThresholds()` in `@ptw/shared`.
+  - Shared `validateUuidParam` middleware (`apps/api/src/middleware/validate.ts`), `100kb` JSON limit (`app.ts`), `413 PAYLOAD_TOO_LARGE` & 4xx envelope handling (`error-handler.ts`), `guardRequesterOwnership` + `guardClosureVerifySeparation` (`guards.ts`, `transitions.ts`, `transition-engine.ts`, `permits.service.ts`).
+  - `PermitDetailPage.tsx` modal validation hints + removed auto-filled fallback strings; `DynamicFields.tsx` wired to `GAS_SAFETY_THRESHOLDS`.
+  - Red->Green regression suites (`schema-generator.test.ts`, `audit-stage1-regressions.test.ts`, `DynamicFields.test.tsx`, `PermitDetailPage.test.tsx`).
+- **Human Review & Corrections**:
+  - **Legacy Test Alignment (`D-031`)**: Updated `integration-workflows.test.ts` (`Workflow C` and `Workflow D`) where the requester-owned permit was previously activated by a non-owner `SAFETY_OFFICER`, adding an explicit `403 NOT_PERMIT_OWNER` assertion and having `requesterAgent` activate their own permit.
+  - **Test Isolation on Immutable Audit Log**: Replaced temporary user creation inside `audit-stage1-regressions.test.ts` with seeded role accounts (`requester`, `safety.officer`, `area.owner`, `admin`) so `users` row counts (`5`) and active `ADMIN` counts (`1`) remain clean for `schema.test.ts` and `admin.test.ts`.
+  - **`body-parser` 413 Envelope Discovery**: Red-phase testing caught that Express's default 100kb limit threw `PayloadTooLargeError`, which `errorHandler` previously turned into HTTP `500` until explicit `status === 413` / `entity.too.large` handling was added.
+
 
 
 

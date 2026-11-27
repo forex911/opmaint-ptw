@@ -799,4 +799,23 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `D-028`, `D-029`, `D-030`.
 - **Next**: Manual browser QA checklist against deployed/local UI and merge `feat/admin-management` into `main` when ready.
 
+---
+
+## [2026-11-27 18:17] fix/audit-server-correctness / Stage 1 Audit Remediation (Server Correctness, Ownership & Gas Thresholds)
+- **Goal**: Resolve Stage 1 findings (`I12`, `I10`, `D1/I6`, `C7/E4`, `K1`) from `docs/SUBMISSION_AUDIT.md` with red-before/green-after regression proof.
+- **Done**:
+  - **`I12`**: Added shared `uuidParamSchema` and `validateUuidParam` middleware (`apps/api/src/middleware/validate.ts`) wired onto all 13 `/api/permits/:id*` routes and 5 `/api/admin/*/:id*` routes, returning `422 INVALID_ID` (never `500`).
+  - **`I10`**: Configured explicit `express.json({ limit: '100kb' })` in `apps/api/src/app.ts`; updated `errorHandler` to return `413 PAYLOAD_TOO_LARGE` for oversized payloads, `400 MALFORMED_JSON` for invalid JSON, and 4xx client envelopes for client middleware errors (never `500`).
+  - **`D1/I6`**: Tightened `guardRequesterOwnership` (`actor.role !== ADMIN && actor.id !== permit.requesterId -> 403 NOT_PERMIT_OWNER`) for `submit`/`activate`/`close`/`cancel`; added `guardClosureVerifySeparation` querying the `'close'` `audit_log` actor (`403 DUTIES_SEPARATION_VIOLATION` when `actor.id === closedBy`, hiding `'verify'` in `getAllowedActions`). Recorded as `D-031`.
+  - **`C7/E4`**: Required non-empty trimmed strings strictly on `reject`/`suspend`/`cancel` (`422 MISSING_COMMENT`) and `completionNotes` on `close` (removed `|| comment` fallback). Updated `PermitDetailPage.tsx` modal to remove all 3 auto-filled fallback strings, require trimmed text for `reject`/`suspend`/`cancel`/`close`, disable Confirm until valid, and render inline validation hints.
+  - **`K1`**: Exported `GAS_SAFETY_THRESHOLDS` and `evaluateGasThresholds()` in `@ptw/shared`; enforced atmospheric limits strictly in `submit` mode for `HOT_WORK` and `CONFINED_SPACE` returning `422 UNSAFE_ATMOSPHERE` with `details.offendingReadings` while drafts remain permissive; updated `DynamicFields.tsx` to read `GAS_SAFETY_THRESHOLDS` and guard `null`/empty `o2_pct`. Recorded as `D-032`.
+  - Updated `docs/DECISIONS.md` (`D-031`, `D-032`), `docs/API.md`, `docs/KNOWN_ISSUES.md`, `docs/AI_USAGE.md`, and `CHANGELOG.md`.
+- **Verification**:
+  - `npm run typecheck` and `npm run lint` -> 0 errors across `@ptw/shared`, `@ptw/api`, `@ptw/web`.
+  - `npm test` on fresh `ptw_cmms_test`: `@ptw/shared` `9/9` passed (1 file); `@ptw/api` `248/248` passed (14 files, including `audit-stage1-regressions.test.ts` 6/6); `@ptw/web` `46/46` passed (10 files). Total `303 passed (303)`, 0 skipped, 0 failed.
+  - Note: UI modal/field checks ran under Vitest `jsdom` only; real browser QA remains UNVERIFIED until post-Stage UI run.
+- **Decisions**:
+  - `D-031`, `D-032`.
+- **Next**: Proceed to Stage 2 upon user confirmation.
+
 

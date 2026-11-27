@@ -58,6 +58,11 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Audit Scope**: Like `audit_log` (`D-012`), `admin_audit_log` enforces append-only immutability for `ptw_app_user` via row/truncate triggers and revoked SQL privileges; database superusers retain DDL privileges unless external write-once log streaming is configured.
 - **UI Manual QA**: Phase 2 `/admin` frontend interactions and 390px responsiveness were verified via automated `@ptw/web` Vitest (`jsdom`) unit tests (`AdminRoute.test.tsx`, `AdminPage.test.tsx`), not live browser driving by the agent.
 
+### 11. Static Facility Gas Thresholds & Stage 1 Browser QA Scope (`D-032`)
+- **Behavior**: `GAS_SAFETY_THRESHOLDS` (`lelMaxPct: 10`, `o2MinPct: 19.5`, `o2MaxPct: 23.5`, `h2sMaxPpm: 10`, `coMaxPpm: 35`) is currently shared statically from `@ptw/shared` rather than configured per plant in PostgreSQL.
+- **Future Scope**: Per-plant threshold overrides can be moved to plant configuration tables if industrial sites require custom atmospheric limits.
+- **Stage 1 Browser Verification**: Stage 1 UI fixes (`PermitDetailPage.tsx` modal validation hints and `DynamicFields.tsx` null-safe gas warnings) are verified in Vitest `jsdom` unit tests (`DynamicFields.test.tsx`, `PermitDetailPage.test.tsx`); live Chrome browser end-to-end QA against the running stack remains UNVERIFIED pending Stage 3/4 completion.
+
 
 
 
