@@ -371,6 +371,45 @@ This log records every architectural decision, rejected alternative, and trade-o
   - Cascading location dropdowns in the permit creation wizard list each plant, area, and equipment item exactly once.
 - **Status**: Accepted
 
+---
+
+### D-028 Pending Area Approval Reassignment on Area Owner Change (Amends D-014)
+- **Context**: Under `D-014`, `permit_approvals.required_user_id` snapshots `areas.owner_id` at permit submission. When an administrator changes an area's designated owner (`PATCH /api/admin/areas/:id`) or transfers area ownership to another `AREA_OWNER`, previously snapshotted `PENDING` approval rows on open permits in that area would otherwise remain assigned to the outgoing owner — blocking handover or stranding permits if the outgoing owner is demoted or deactivated.
+- **Options considered**:
+  - *Option A*: Keep old `required_user_id` frozen forever unless modified by a separate ad-hoc reassignment call (previous `D-014` behavior).
+  - *Option B*: Atomically update `required_user_id` on all `PENDING` `AREA_OWNER` approval rows of non-terminal permits (`status NOT IN ('CLOSED_VERIFIED', 'CANCELLED', 'REJECTED', 'EXPIRED')`) in that area to the new owner in the same transaction as the area owner update, and write an `audit_log` row (`action = 'approver_reassigned'`, `actor_id = admin.id`) on each affected permit while leaving decided (`APPROVED`/`REJECTED`) rows untouched. Allow areas to move freely between active `AREA_OWNER` users (`REASSIGN_AREAS_FIRST` applies only when demoting or deactivating an `AREA_OWNER` who still owns areas, with no rule forcing `AREA_OWNER` users to hold >= 1 area; `areas.owner_id` must always belong to an active `AREA_OWNER`).
+- **Decision**: Option B — Transactional pending approval reassignment with permit audit entries and explicit `REASSIGN_AREAS_FIRST` barrier on owner demotion/deactivation. (Amends `D-014`.)
+- **Consequences**:
+  - Open permits never strand with an inactive or outgoing Area Owner.
+  - Historical `APPROVED`/`REJECTED` sign-offs keep their immutable record of who actually signed off.
+  - `audit_log` records every approver reassignment attributed to the executing administrator.
+- **Status**: Accepted (supersedes the static freeze clause in `D-014`)
+
+---
+
+### D-029 Soft Deactivation (`is_active`), Child/Permit Guards & Active Location Scoping
+- **Context**: Hard-deleting users, plants, areas, or equipment breaks `ON DELETE RESTRICT` foreign keys on permits, approvals, work logs, and audit trails. At the same time, inactive entities must be unusable for new logins, new approvals, or new permits, and deactivating parent entities must not silently cascade.
+- **Options considered**:
+  - *Option A*: Cascade deactivation down from plants to areas and equipment, and permit deactivation with open permits. (Rejected: silently breaks in-flight permits and hides child state transitions.)
+  - *Option B*: Soft-deactivate (`is_active = false`) via migration `0004`, reject deactivation when non-terminal permits reference the target (`409 HAS_OPEN_PERMITS`) or when active children exist (`409 HAS_ACTIVE_CHILDREN`), verify `is_active = true` on every authenticated request (`requireAuth`) and login (`401`), filter public reference endpoints to active items (with active parents) while providing admin-only `?includeInactive=true` for permit filtering, and reject inactive locations in `validateLocationConsistency()` (`422`).
+- **Decision**: Option B — Non-cascading soft deactivation with explicit conflict guards and real-time auth enforcement.
+- **Consequences**:
+  - Existing sessions for deactivated users fail with `401` on their next API call.
+  - Historical permits retain full relational joins to deactivated plants, areas, and equipment, and admins can filter by them using `?includeInactive=true`.
+- **Status**: Accepted
+
+---
+
+### D-030 Append-Only Admin Audit Log (`admin_audit_log`) & Secret Scrubbing
+- **Context**: Administrative lifecycle mutations (creating users, changing roles, deactivating/reactivating entities, resetting passwords) are not scoped to a single `permit_id`, so they cannot live in `audit_log`. Yet safety governance demands an immutable log of administrative actions matching `D-012`.
+- **Options considered**:
+  - *Option A*: Relax `audit_log.permit_id` constraints and mix system administration rows into permit timelines. (Rejected: pollutes per-permit safety timelines and weakens `permit_id` semantics.)
+  - *Option B*: Create dedicated `admin_audit_log` (`actor_id`, `entity_type`, `entity_id`, `action`, `from_value JSONB`, `to_value JSONB`, `created_at`) in migration `0004` with `BEFORE UPDATE OR DELETE` row trigger, `BEFORE TRUNCATE` statement trigger, and `REVOKE UPDATE, DELETE, TRUNCATE ... FROM ptw_app_user`. Strictly scrub passwords and hashes so credentials are never written.
+- **Decision**: Option B — Separate append-only `admin_audit_log` table executing writes inside the same database transaction as every admin mutation.
+- **Consequences**:
+  - Same tamper-evidence guarantees (and superuser threat model documented in `D-012`) apply to administrative changes, viewable chronologically via `GET /api/admin/activity`.
+- **Status**: Accepted
+
 
 
 

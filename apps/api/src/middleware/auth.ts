@@ -9,6 +9,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: string;
+  isActive: boolean;
 }
 
 // Augment Express Request declaration
@@ -47,12 +48,12 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     // Load active user from database to ensure fresh role and active status
     const pool = getPool();
     const result = await pool.query(
-      'SELECT id, name, email, role FROM users WHERE id = $1',
+      'SELECT id, name, email, role, is_active FROM users WHERE id = $1',
       [decoded.userId]
     );
 
     const user = result.rows[0];
-    if (!user) {
+    if (!user || !user.is_active) {
       return next(AppError.unauthorized('User not found or inactive'));
     }
 
@@ -61,6 +62,7 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       name: user.name,
       email: user.email,
       role: user.role,
+      isActive: user.is_active,
     };
 
     next();

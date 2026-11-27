@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, check } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, check } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { ALL_USER_ROLES } from '@ptw/shared';
 
@@ -10,6 +10,7 @@ export const users = pgTable(
     email: text('email').notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     role: text('role').notNull(),
+    isActive: boolean('is_active').notNull().default(true),
   },
   (table) => ({
     usersRoleCheck: check(

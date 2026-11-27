@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, index, unique } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, index, unique } from 'drizzle-orm/pg-core';
 import { plants } from './plants.js';
 import { users } from './users.js';
 
@@ -14,6 +14,7 @@ export const areas = pgTable(
     ownerId: uuid('owner_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
+    isActive: boolean('is_active').notNull().default(true),
   },
   (table) => ({
     areasPlantIdIdx: index('areas_plant_id_idx').on(table.plantId),

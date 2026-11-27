@@ -16,7 +16,7 @@ export const GUARD_STATUS_MAP: Record<string, number> = {
   FORBIDDEN_ROLE_MISMATCH: 403,
   FORBIDDEN_NOT_OWNER: 403,
 
-  // 409 Conflict: Lifecycle, State Machine, Temporal barriers
+  // 409 Conflict: Lifecycle, State Machine, Temporal, and Admin Business Rule barriers
   ILLEGAL_TRANSITION: 409,
   NO_PENDING_APPROVAL: 409,
   EARLY_ACTIVATION: 409,
@@ -24,6 +24,13 @@ export const GUARD_STATUS_MAP: Record<string, number> = {
   PENDING_APPROVALS: 409,
   PERMIT_EXPIRED: 409,
   VERSION_CONFLICT: 409,
+  CANNOT_MODIFY_SELF: 409,
+  LAST_ADMIN: 409,
+  REASSIGN_AREAS_FIRST: 409,
+  EMAIL_TAKEN: 409,
+  CODE_TAKEN: 409,
+  HAS_OPEN_PERMITS: 409,
+  HAS_ACTIVE_CHILDREN: 409,
 
   // 422 Unprocessable Entity: Input validation failures
   VALIDATION_ERROR: 422,

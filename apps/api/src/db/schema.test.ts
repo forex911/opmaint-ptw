@@ -150,6 +150,37 @@ describe('Database Schema, Migrations, Constraints, & Audit Trigger', () => {
     }
   });
 
+  it('enforces append-only admin_audit_log triggers: blocks UPDATE, DELETE, and TRUNCATE', async () => {
+    const client = await pool.connect();
+    try {
+      const userRes = await client.query('SELECT id FROM users LIMIT 1');
+      const actorId = userRes.rows[0].id;
+      const entityId = userRes.rows[0].id;
+
+      const res = await client.query(
+        `INSERT INTO admin_audit_log (actor_id, entity_type, entity_id, action, from_value, to_value)
+         VALUES ($1, 'USER', $2, 'TEST_ADMIN_ACTION', '{"role":"REQUESTER"}'::jsonb, '{"role":"ADMIN"}'::jsonb)
+         RETURNING id`,
+        [actorId, entityId]
+      );
+      const adminAuditId = res.rows[0].id;
+
+      await expect(
+        client.query("UPDATE admin_audit_log SET action = 'TAMPERED' WHERE id = $1", [adminAuditId])
+      ).rejects.toThrow(/admin_audit_log is append-only/);
+
+      await expect(
+        client.query('DELETE FROM admin_audit_log WHERE id = $1', [adminAuditId])
+      ).rejects.toThrow(/admin_audit_log is append-only/);
+
+      await expect(client.query('TRUNCATE TABLE admin_audit_log')).rejects.toThrow(
+        /admin_audit_log is append-only: TRUNCATE is strictly prohibited/
+      );
+    } finally {
+      client.release();
+    }
+  });
+
   it('enforces ON DELETE RESTRICT on audit_log.permit_id preventing permit deletion while audit logs exist', async () => {
     const client = await pool.connect();
     try {
