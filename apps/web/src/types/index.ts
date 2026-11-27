@@ -1,50 +1,24 @@
-import type { UserRole, PermitStatus, PermitAction, PermitTypeCode } from '@ptw/shared';
+import type {
+  UserRole,
+  PermitStatus,
+  PermitAction,
+  PermitTypeCode,
+  UserDto,
+  OwnedAreaSummaryDto,
+  PlantDto,
+  AreaDto,
+  EquipmentDto,
+  AdminAuditLogDto,
+  AdminActivityResponseDto,
+} from '@ptw/shared';
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  plantId: string | null;
-  department?: string | null;
-  active: boolean;
-  createdAt: string;
-}
-
-export interface Plant {
-  id: string;
-  name: string;
-  code: string;
-  address?: string | null;
-  active: boolean;
-}
-
-export interface Area {
-  id: string;
-  plantId: string;
-  name: string;
-  code?: string;
-  ownerId?: string | null;
-  ownerName?: string | null;
-  ownerEmail?: string | null;
-  areaOwnerId?: string | null;
-  active?: boolean;
-  areaOwner?: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
-}
-
-export interface Equipment {
-  id: string;
-  areaId: string;
-  name: string;
-  tag?: string;
-  tagNo?: string;
-  description?: string | null;
-  active?: boolean;
-}
+export type OwnedAreaSummary = OwnedAreaSummaryDto;
+export type User = UserDto;
+export type Plant = PlantDto;
+export type Area = AreaDto;
+export type Equipment = EquipmentDto;
+export type AdminAuditLogEntry = AdminAuditLogDto;
+export type AdminActivityResponse = AdminActivityResponseDto;
 
 export interface PermitApproval {
   id: string;

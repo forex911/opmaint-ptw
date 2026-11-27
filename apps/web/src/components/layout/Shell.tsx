@@ -5,7 +5,7 @@ import {
   FileText,
   Clock,
   PlusCircle,
-  Database,
+  ShieldCheck,
   LogOut,
   User,
   Menu,
@@ -48,9 +48,9 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
       visible: isAreaOwner || isSafetyOfficer || isAdmin,
     },
     {
-      label: 'Reference Data',
-      path: '/reference',
-      icon: <Database className="w-4 h-4" />,
+      label: 'Admin Console',
+      path: '/admin',
+      icon: <ShieldCheck className="w-4 h-4" />,
       visible: isAdmin,
     },
   ];
@@ -85,10 +85,12 @@ export const Shell: React.FC<{ children: React.ReactNode }> = ({ children }) => 
               const active =
                 item.path === '/'
                   ? location.pathname === '/' && !location.search
-                  : location.pathname + location.search === item.path ||
-                    (item.path === '/permits' &&
-                      location.pathname === '/permits' &&
-                      !location.search);
+                  : item.path === '/admin'
+                    ? location.pathname.startsWith('/admin')
+                    : location.pathname + location.search === item.path ||
+                      (item.path === '/permits' &&
+                        location.pathname === '/permits' &&
+                        !location.search);
 
               return (
                 <Link

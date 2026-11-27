@@ -33,10 +33,10 @@ export const PermitsListPage: React.FC = () => {
   const pendingMyApproval = searchParams.get('pendingMyApproval') === 'true';
   const areaId = searchParams.get('areaId') || '';
 
-  // Reference data for area filter
+  // Reference data for area filter (admins see inactive areas so historical permits stay filterable)
   const { data: areasData } = useQuery({
-    queryKey: ['areas'],
-    queryFn: () => api.getAreas(),
+    queryKey: ['areas', { includeInactive: isAdmin }],
+    queryFn: () => api.getAreas(undefined, { includeInactive: isAdmin }),
   });
 
   // Query permits
@@ -141,7 +141,7 @@ export const PermitsListPage: React.FC = () => {
             <option value="">All Operational Areas</option>
             {areasData?.areas.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.name} ({a.code})
+                {a.name} ({a.code}){a.isActive === false ? ' [Inactive]' : ''}
               </option>
             ))}
           </select>

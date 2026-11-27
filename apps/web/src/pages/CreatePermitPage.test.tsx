@@ -66,7 +66,7 @@ describe('CreatePermitPage Equipment Cascade Component Tests (Bug 2)', () => {
       if (areaId === 'area-101') {
         return {
           equipment: [
-            { id: 'eq-1', areaId: 'area-101', tagNo: 'P-101', name: 'Feedwater Pump' } as any,
+            { id: 'eq-1', areaId: 'area-101', tag: 'P-101', name: 'Feedwater Pump' } as any,
           ],
         };
       }
@@ -77,7 +77,7 @@ describe('CreatePermitPage Equipment Cascade Component Tests (Bug 2)', () => {
       if (areaId === 'area-201') {
         return {
           equipment: [
-            { id: 'eq-201', areaId: 'area-201', tagNo: 'C-201', name: 'Column Shell' } as any,
+            { id: 'eq-201', areaId: 'area-201', tag: 'C-201', name: 'Column Shell' } as any,
           ],
         };
       }

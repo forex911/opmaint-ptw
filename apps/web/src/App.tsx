@@ -3,13 +3,14 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext.js';
 import { ProtectedRoute } from './components/auth/ProtectedRoute.js';
+import { AdminRoute } from './components/auth/AdminRoute.js';
 import { ErrorBoundary } from './components/common/ErrorBoundary.js';
 import { LoginPage } from './pages/LoginPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { PermitsListPage } from './pages/PermitsListPage.js';
 import { CreatePermitPage } from './pages/CreatePermitPage.js';
 import { PermitDetailPage } from './pages/PermitDetailPage.js';
-import { ReferenceDataPage } from './pages/ReferenceDataPage.js';
+import { AdminPage } from './pages/AdminPage.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -68,13 +69,15 @@ export const App: React.FC = () => {
               />
 
               <Route
-                path="/reference"
+                path="/admin"
                 element={
-                  <ProtectedRoute>
-                    <ReferenceDataPage />
-                  </ProtectedRoute>
+                  <AdminRoute>
+                    <AdminPage />
+                  </AdminRoute>
                 }
               />
+
+              <Route path="/reference" element={<Navigate to="/admin" replace />} />
 
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
