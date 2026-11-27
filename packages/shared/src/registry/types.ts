@@ -35,8 +35,8 @@ export interface FieldDefinition {
 
 export interface PermitTypeRuleContext {
   details: Record<string, unknown>;
-  plannedStart: Date;
-  plannedEnd: Date;
+  plannedStart?: Date;
+  plannedEnd?: Date;
   now?: Date;
 }
 
@@ -44,6 +44,7 @@ export interface PermitTypeRuleResult {
   valid: boolean;
   code?: string;
   message?: string;
+  details?: Record<string, unknown>;
 }
 
 export interface PermitTypeRule {

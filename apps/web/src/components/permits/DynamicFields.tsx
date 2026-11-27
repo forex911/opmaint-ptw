@@ -1,5 +1,5 @@
 import React from 'react';
-import { getPermitTypeConfig, type FieldDefinition } from '@ptw/shared';
+import { getPermitTypeConfig, GAS_SAFETY_THRESHOLDS, type FieldDefinition } from '@ptw/shared';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { Input } from '../ui/Input.js';
 
@@ -197,19 +197,29 @@ export const DynamicFields: React.FC<DynamicFieldsProps> = ({
                 const subVal = readingsData[subField.key];
                 const subErr = errors[`${field.key}.${subField.key}`] || errors[`details.${field.key}.${subField.key}`];
 
-                // Real-time gas threshold visual safety validation
+                // Real-time gas threshold visual safety validation using shared GAS_SAFETY_THRESHOLDS
+                const hasNumericReading =
+                  subVal !== undefined &&
+                  subVal !== null &&
+                  subVal !== '' &&
+                  Number.isFinite(Number(subVal));
+                const numericVal = hasNumericReading ? Number(subVal) : null;
                 let safetyAlert: string | null = null;
-                if (subField.key === 'lel_pct' && Number(subVal) > 10) {
-                  safetyAlert = 'LEL exceeds maximum allowable hot work limit (10%)!';
+                if (subField.key === 'lel_pct' && numericVal !== null && numericVal > GAS_SAFETY_THRESHOLDS.lelMaxPct) {
+                  safetyAlert = `LEL exceeds maximum allowable hot work limit (${GAS_SAFETY_THRESHOLDS.lelMaxPct}%)!`;
                 }
-                if (subField.key === 'o2_pct' && (Number(subVal) < 19.5 || Number(subVal) > 23.5)) {
-                  safetyAlert = 'O2 concentration is outside safe atmospheric range (19.5% – 23.5%)!';
+                if (
+                  subField.key === 'o2_pct' &&
+                  numericVal !== null &&
+                  (numericVal < GAS_SAFETY_THRESHOLDS.o2MinPct || numericVal > GAS_SAFETY_THRESHOLDS.o2MaxPct)
+                ) {
+                  safetyAlert = `O2 concentration is outside safe atmospheric range (${GAS_SAFETY_THRESHOLDS.o2MinPct}% – ${GAS_SAFETY_THRESHOLDS.o2MaxPct}%)!`;
                 }
-                if (subField.key === 'h2s_ppm' && Number(subVal) > 10) {
-                  safetyAlert = 'H2S exceeds 10 ppm permissible exposure limit!';
+                if (subField.key === 'h2s_ppm' && numericVal !== null && numericVal > GAS_SAFETY_THRESHOLDS.h2sMaxPpm) {
+                  safetyAlert = `H2S exceeds ${GAS_SAFETY_THRESHOLDS.h2sMaxPpm} ppm permissible exposure limit!`;
                 }
-                if (subField.key === 'co_ppm' && Number(subVal) > 35) {
-                  safetyAlert = 'CO concentration exceeds 35 ppm safety threshold!';
+                if (subField.key === 'co_ppm' && numericVal !== null && numericVal > GAS_SAFETY_THRESHOLDS.coMaxPpm) {
+                  safetyAlert = `CO concentration exceeds ${GAS_SAFETY_THRESHOLDS.coMaxPpm} ppm safety threshold!`;
                 }
 
                 if (subField.type === 'number') {

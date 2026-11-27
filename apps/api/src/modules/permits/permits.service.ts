@@ -425,8 +425,19 @@ export class PermitsService {
       [id]
     );
 
+    let closedBy: string | null = null;
+    if (permit.status === PermitStatus.CLOSED) {
+      const closeAuditRes = await pool.query<{ actor_id: string | null }>(
+        `SELECT actor_id FROM audit_log
+         WHERE permit_id = $1 AND action = 'close'
+         ORDER BY created_at DESC LIMIT 1`,
+        [id]
+      );
+      closedBy = closeAuditRes.rows[0]?.actor_id ?? null;
+    }
+
     // Compute dynamic allowed actions
-    const allowedActions = getAllowedActions(permit, actor, approvals, new Date());
+    const allowedActions = getAllowedActions(permit, actor, approvals, new Date(), { closedBy });
 
     return {
       permit: {

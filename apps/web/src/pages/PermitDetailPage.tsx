@@ -95,16 +95,16 @@ export const PermitDetailPage: React.FC = () => {
         case 'approve':
           return api.approvePermit(id, { comment });
         case 'reject':
-          return api.rejectPermit(id, { comment: comment || 'Rejected during review' });
+          return api.rejectPermit(id, { comment: comment || '' });
         case 'activate':
           return api.activatePermit(id, comment);
         case 'suspend':
-          return api.suspendPermit(id, { comment: comment || 'Suspended for safety inspection' });
+          return api.suspendPermit(id, { comment: comment || '' });
         case 'resume':
           return api.resumePermit(id, comment);
         case 'close':
           return api.closePermit(id, {
-            completionNotes: completionNotes || 'Work completed and site left safe',
+            completionNotes: completionNotes || '',
             comment,
           });
         case 'verify':
@@ -624,73 +624,113 @@ export const PermitDetailPage: React.FC = () => {
       </Card>
 
       {/* Action Confirmation Modal */}
-      {modalAction && (
-        <Modal
-          isOpen={!!modalAction}
-          onClose={() => setModalAction(null)}
-          title={`Confirm Action: ${PERMIT_ACTION_LABELS[modalAction] || modalAction}`}
-          description={`Execute state transition '${modalAction}' on permit ${permit.permitNo}.`}
-        >
-          {actionError && (
-            <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
-              {actionError}
-            </div>
-          )}
+      {modalAction && (() => {
+        const requiresReason =
+          modalAction === 'reject' || modalAction === 'suspend' || modalAction === 'cancel';
+        const requiresCompletionNotes = modalAction === 'close';
+        const trimmedComment = commentText.trim();
+        const trimmedCompletionNotes = completionNotes.trim();
+        const isConfirmDisabled =
+          transitionMutation.isPending ||
+          (requiresReason && trimmedComment.length === 0) ||
+          (requiresCompletionNotes && trimmedCompletionNotes.length === 0);
 
-          <div className="space-y-4 text-xs">
-            {modalAction === 'close' && (
-              <div>
-                <label className="block font-semibold text-slate-800 mb-1">
-                  Required Completion Notes <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="Describe completed work, housekeeping, locks removed, and equipment status..."
-                  value={completionNotes}
-                  onChange={(e) => setCompletionNotes(e.target.value)}
-                  className="w-full p-2.5 border border-[#E2E8F0] rounded-lg text-xs"
-                />
+        return (
+          <Modal
+            isOpen={!!modalAction}
+            onClose={() => {
+              setModalAction(null);
+              setCommentText('');
+              setCompletionNotes('');
+            }}
+            title={`Confirm Action: ${PERMIT_ACTION_LABELS[modalAction] || modalAction}`}
+            description={`Execute state transition '${modalAction}' on permit ${permit.permitNo}.`}
+          >
+            {actionError && (
+              <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-800">
+                {actionError}
               </div>
             )}
 
-            <div>
-              <label className="block font-semibold text-slate-800 mb-1">
-                {modalAction === 'reject' || modalAction === 'suspend'
-                  ? 'Mandatory Reason / Comment *'
-                  : 'Optional Reviewer Comment'}
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Enter audit comment or explanation..."
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className="w-full p-2.5 border border-[#E2E8F0] rounded-lg text-xs"
-              />
-            </div>
+            <div className="space-y-4 text-xs">
+              {modalAction === 'close' && (
+                <div>
+                  <label className="block font-semibold text-slate-800 mb-1">
+                    Required Completion Notes <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Describe completed work, housekeeping, locks removed, and equipment status..."
+                    value={completionNotes}
+                    onChange={(e) => setCompletionNotes(e.target.value)}
+                    className="w-full p-2.5 border border-[#E2E8F0] rounded-lg text-xs"
+                  />
+                  {trimmedCompletionNotes.length === 0 && (
+                    <p className="mt-1 text-[11px] text-amber-700">
+                      Please enter mandatory completion notes before closing this permit.
+                    </p>
+                  )}
+                </div>
+              )}
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" size="sm" onClick={() => setModalAction(null)}>
-                Cancel
-              </Button>
-              <Button
-                variant={modalAction === 'reject' || modalAction === 'suspend' || modalAction === 'cancel' ? 'destructive' : 'primary'}
-                size="sm"
-                isLoading={transitionMutation.isPending}
-                onClick={() =>
-                  transitionMutation.mutate({
-                    action: modalAction,
-                    comment: commentText || undefined,
-                    completionNotes: completionNotes || undefined,
-                  })
-                }
-              >
-                Confirm {PERMIT_ACTION_LABELS[modalAction] || modalAction}
-              </Button>
+              <div>
+                <label className="block font-semibold text-slate-800 mb-1">
+                  {requiresReason ? (
+                    <>
+                      Mandatory Reason / Comment <span className="text-red-500">*</span>
+                    </>
+                  ) : (
+                    'Optional Reviewer Comment'
+                  )}
+                </label>
+                <textarea
+                  rows={3}
+                  required={requiresReason}
+                  placeholder="Enter audit comment or explanation..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  className="w-full p-2.5 border border-[#E2E8F0] rounded-lg text-xs"
+                />
+                {requiresReason && trimmedComment.length === 0 && (
+                  <p className="mt-1 text-[11px] text-amber-700">
+                    Please enter a mandatory reason before confirming this action.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setModalAction(null);
+                    setCommentText('');
+                    setCompletionNotes('');
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant={modalAction === 'reject' || modalAction === 'suspend' || modalAction === 'cancel' ? 'destructive' : 'primary'}
+                  size="sm"
+                  disabled={isConfirmDisabled}
+                  isLoading={transitionMutation.isPending}
+                  onClick={() =>
+                    transitionMutation.mutate({
+                      action: modalAction,
+                      comment: trimmedComment || undefined,
+                      completionNotes: trimmedCompletionNotes || undefined,
+                    })
+                  }
+                >
+                  Confirm {PERMIT_ACTION_LABELS[modalAction] || modalAction}
+                </Button>
+              </div>
             </div>
-          </div>
-        </Modal>
-      )}
+          </Modal>
+        );
+      })()}
 
       {/* Add Work Log Modal */}
       {isWorkLogModalOpen && (

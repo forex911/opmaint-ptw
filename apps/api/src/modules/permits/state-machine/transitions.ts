@@ -10,6 +10,7 @@ import type {
 import {
   guardNoSelfAction,
   guardRequesterOwnership,
+  guardClosureVerifySeparation,
   guardAreaOwnerAssignment,
   guardPendingApprovalRowExists,
   guardSeparationOfDuties,
@@ -93,7 +94,7 @@ export const TRANSITION_TABLE: readonly TransitionRule[] = [
     from: [PermitStatus.CLOSED],
     to: PermitStatus.CLOSED_VERIFIED,
     allowedRoles: [UserRole.SAFETY_OFFICER, UserRole.ADMIN],
-    guards: [guardNoSelfAction],
+    guards: [guardNoSelfAction, guardClosureVerifySeparation],
   },
   {
     action: 'cancel',
@@ -129,7 +130,8 @@ export function getAllowedActions(
   permit: Permit,
   actor: TransitionActor,
   approvals: PermitApproval[] = [],
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { closedBy?: string | null }
 ): PermitAction[] {
   const allowed = new Set<PermitAction>();
 
@@ -146,6 +148,7 @@ export function getAllowedActions(
       actor,
       payload: {},
       approvals,
+      closedBy: options?.closedBy ?? null,
       now,
     };
 

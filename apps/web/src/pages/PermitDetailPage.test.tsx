@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -210,5 +210,133 @@ describe('PermitDetailPage Component', () => {
       screen.getByText('Something went wrong while displaying this page')
     ).toBeInTheDocument();
     expect(screen.getByText('Back to Permits')).toBeInTheDocument();
+  });
+
+  describe('Stage 1 E4: Mandatory Reason/Completion Notes Modal Guard', () => {
+    it.each([
+      {
+        action: 'reject' as const,
+        triggerLabel: 'Reject Permit',
+        confirmLabel: 'Confirm Reject',
+        role: UserRole.AREA_OWNER,
+        status: PermitStatus.PENDING_APPROVAL,
+        placeholder: /Enter audit comment or explanation/i,
+      },
+      {
+        action: 'suspend' as const,
+        triggerLabel: 'Suspend Work',
+        confirmLabel: 'Confirm Suspend',
+        role: UserRole.SAFETY_OFFICER,
+        status: PermitStatus.ACTIVE,
+        placeholder: /Enter audit comment or explanation/i,
+      },
+      {
+        action: 'cancel' as const,
+        triggerLabel: 'Cancel Permit',
+        confirmLabel: 'Confirm Cancel',
+        role: UserRole.REQUESTER,
+        status: PermitStatus.DRAFT,
+        placeholder: /Enter audit comment or explanation/i,
+      },
+    ])(
+      'disables Confirm button for $action without non-empty trimmed reason, shows inline hint, and never auto-fills fallback text',
+      async ({ action, triggerLabel, confirmLabel, role, status, placeholder }) => {
+        currentRole = role;
+        const mockDetail: PermitDetailResponseDto = {
+          permit: createMockPermit(status),
+          approvals: [],
+          workLogs: [],
+          allowedActions: [action],
+        };
+
+        vi.spyOn(clientModule.api, 'getPermit').mockResolvedValue(mockDetail as any);
+        const rejectSpy = vi.spyOn(clientModule.api, 'rejectPermit').mockResolvedValue({} as any);
+        const suspendSpy = vi.spyOn(clientModule.api, 'suspendPermit').mockResolvedValue({} as any);
+        const cancelSpy = vi.spyOn(clientModule.api, 'cancelPermit').mockResolvedValue({} as any);
+
+        render(
+          <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+              <PermitDetailPage />
+            </BrowserRouter>
+          </QueryClientProvider>
+        );
+
+        const triggerBtn = await screen.findByRole('button', { name: triggerLabel });
+        fireEvent.click(triggerBtn);
+
+        const confirmBtn = screen.getByRole('button', { name: confirmLabel });
+        expect(confirmBtn).toBeDisabled();
+        expect(screen.getByText(/Please enter a mandatory reason/i)).toBeInTheDocument();
+
+        const textarea = screen.getByPlaceholderText(placeholder);
+        fireEvent.change(textarea, { target: { value: '   ' } });
+        expect(confirmBtn).toBeDisabled();
+
+        fireEvent.change(textarea, { target: { value: '  Verified safety issue requires action  ' } });
+        expect(confirmBtn).toBeEnabled();
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => {
+          if (action === 'reject') {
+            expect(rejectSpy).toHaveBeenCalledWith(mockDetail.permit.id, {
+              comment: 'Verified safety issue requires action',
+            });
+          } else if (action === 'suspend') {
+            expect(suspendSpy).toHaveBeenCalledWith(mockDetail.permit.id, {
+              comment: 'Verified safety issue requires action',
+            });
+          } else {
+            expect(cancelSpy).toHaveBeenCalledWith(
+              mockDetail.permit.id,
+              'Verified safety issue requires action'
+            );
+          }
+        });
+      }
+    );
+
+    it('disables Confirm Complete Work until trimmed completion notes are provided and shows inline hint', async () => {
+      currentRole = UserRole.REQUESTER;
+      const mockDetail: PermitDetailResponseDto = {
+        permit: createMockPermit(PermitStatus.ACTIVE),
+        approvals: [],
+        workLogs: [],
+        allowedActions: ['close'],
+      };
+
+      vi.spyOn(clientModule.api, 'getPermit').mockResolvedValue(mockDetail as any);
+      const closeSpy = vi.spyOn(clientModule.api, 'closePermit').mockResolvedValue({} as any);
+
+      render(
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <PermitDetailPage />
+          </BrowserRouter>
+        </QueryClientProvider>
+      );
+
+      const triggerBtn = await screen.findByRole('button', { name: 'Mark Work Complete' });
+      fireEvent.click(triggerBtn);
+
+      const confirmBtn = screen.getByRole('button', { name: 'Confirm Complete Work' });
+      expect(confirmBtn).toBeDisabled();
+      expect(screen.getByText(/Please enter mandatory completion notes/i)).toBeInTheDocument();
+
+      const notesBox = screen.getByPlaceholderText(/Describe completed work/i);
+      fireEvent.change(notesBox, { target: { value: '   ' } });
+      expect(confirmBtn).toBeDisabled();
+
+      fireEvent.change(notesBox, { target: { value: '  Pipe weld inspected and housekeeping complete  ' } });
+      expect(confirmBtn).toBeEnabled();
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(closeSpy).toHaveBeenCalledWith(mockDetail.permit.id, {
+          completionNotes: 'Pipe weld inspected and housekeeping complete',
+          comment: undefined,
+        });
+      });
+    });
   });
 });

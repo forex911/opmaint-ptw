@@ -34,8 +34,8 @@ export function createApp(configure?: (app: Express) => void): Express {
   // Parse cookies using secret
   app.use(cookieParser(env.COOKIE_SECRET));
 
-  // Parse JSON bodies
-  app.use(express.json());
+  // Parse JSON bodies with explicit payload limit
+  app.use(express.json({ limit: '100kb' }));
 
   // Health check endpoint
   app.get('/health', (_req, res) => {

@@ -32,7 +32,7 @@ export const ALL_PERMIT_ACTIONS: readonly PermitAction[] = [
 
 export type GuardResult =
   | { ok: true }
-  | { ok: false; code: string; message: string };
+  | { ok: false; code: string; message: string; details?: unknown };
 
 export interface TransitionActor {
   id: string | null;
@@ -47,6 +47,7 @@ export interface TransitionContext {
   actor: TransitionActor;
   payload?: Record<string, unknown>;
   approvals: PermitApproval[];
+  closedBy?: string | null;
   now: Date;
 }
 

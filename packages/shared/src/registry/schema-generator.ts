@@ -184,6 +184,7 @@ export interface ValidationIssue {
   path: (string | number)[];
   message: string;
   code?: string;
+  details?: Record<string, unknown>;
 }
 
 export interface ValidatePermitDetailsResult {
@@ -229,18 +230,40 @@ export function validatePermitDetails(
 
   const validatedData = parsed.data as Record<string, unknown>;
 
-  // If submitting and ruleContext is provided, execute type-specific rules
-  if (mode === 'submit' && config.rules && ruleContext) {
+  // In submit mode, always execute type-specific domain rules (including safety thresholds)
+  if (mode === 'submit' && config.rules) {
     const context: PermitTypeRuleContext = {
       details: validatedData,
-      plannedStart: ruleContext.plannedStart,
-      plannedEnd: ruleContext.plannedEnd,
-      now: ruleContext.now ?? new Date(),
+      plannedStart: ruleContext?.plannedStart,
+      plannedEnd: ruleContext?.plannedEnd,
+      now: ruleContext?.now ?? new Date(),
     };
 
     for (const rule of config.rules) {
       const result: PermitTypeRuleResult = rule.validate(context);
       if (!result.valid) {
+        const offendingReadings = result.details?.['offendingReadings'];
+        if (Array.isArray(offendingReadings) && offendingReadings.length > 0) {
+          return {
+            valid: false,
+            data: validatedData,
+            issues: offendingReadings.map((reading) => {
+              const r = reading as {
+                field?: string;
+                message?: string;
+                value?: number;
+                threshold?: string;
+              };
+              return {
+                path: r.field ? r.field.split('.') : ['details', rule.id],
+                message: r.message ?? result.message ?? `Rule validation failed: ${rule.description}`,
+                code: result.code ?? 'TYPE_RULE_FAILED',
+                details: r as Record<string, unknown>,
+              };
+            }),
+          };
+        }
+
         return {
           valid: false,
           data: validatedData,
@@ -249,6 +272,7 @@ export function validatePermitDetails(
               path: ['details', rule.id],
               message: result.message ?? `Rule validation failed: ${rule.description}`,
               code: result.code ?? 'TYPE_RULE_FAILED',
+              details: result.details,
             },
           ],
         };

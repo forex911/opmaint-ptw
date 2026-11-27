@@ -260,8 +260,14 @@ describe('Stage 8 End-to-End User Workflows & Permit Types Integration Suite', (
       expect(approveRes.body.permit.status).toBe(PermitStatus.APPROVED);
     });
 
-    it('Step 6: Safety Officer / Requester activates the permit (moves to ACTIVE)', async () => {
-      const activateRes = await safetyOfficerAgent
+    it('Step 6: Non-owner Safety Officer is blocked (403 NOT_PERMIT_OWNER) and Requester activates the permit (moves to ACTIVE)', async () => {
+      const soActivateRes = await safetyOfficerAgent
+        .post(`/api/permits/${permitId}/activate`)
+        .send({ comment: 'Non-owner SO attempting activation' })
+        .expect(403);
+      expect(soActivateRes.body.error.code).toBe('NOT_PERMIT_OWNER');
+
+      const activateRes = await requesterAgent
         .post(`/api/permits/${permitId}/activate`)
         .send({ comment: 'Work crew on site, permit active' })
         .expect(200);
@@ -298,7 +304,7 @@ describe('Stage 8 End-to-End User Workflows & Permit Types Integration Suite', (
       await requesterAgent.post(`/api/permits/${permitId}/submit`).send({}).expect(200);
       await areaOwnerAgent.post(`/api/permits/${permitId}/approve`).send({}).expect(200);
       await safetyOfficerAgent.post(`/api/permits/${permitId}/approve`).send({}).expect(200);
-      await safetyOfficerAgent.post(`/api/permits/${permitId}/activate`).send({}).expect(200);
+      await requesterAgent.post(`/api/permits/${permitId}/activate`).send({}).expect(200);
     });
 
     it('Step 1: records operational work logs on the ACTIVE permit', async () => {

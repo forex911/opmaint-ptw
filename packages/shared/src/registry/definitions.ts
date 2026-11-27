@@ -1,5 +1,87 @@
 import { UserRole } from '../roles.js';
-import type { PermitTypeConfig, FieldDefinition } from './types.js';
+import type { PermitTypeConfig, FieldDefinition, PermitTypeRuleResult } from './types.js';
+
+export const GAS_SAFETY_THRESHOLDS = {
+  lelMaxPct: 10,
+  o2MinPct: 19.5,
+  o2MaxPct: 23.5,
+  h2sMaxPpm: 10,
+  coMaxPpm: 35,
+} as const;
+
+export interface UnsafeAtmosphereReading {
+  field: string;
+  value: number;
+  threshold: string;
+  message: string;
+}
+
+/**
+ * Evaluates recorded gas/atmosphere readings against GAS_SAFETY_THRESHOLDS.
+ * Intended for submit-time enforcement while allowing drafts to remain permissive.
+ */
+export function evaluateGasThresholds(
+  sectionKey: string,
+  readings: Record<string, unknown> | undefined
+): PermitTypeRuleResult {
+  if (!readings) return { valid: true };
+  const offendingReadings: UnsafeAtmosphereReading[] = [];
+
+  const lel = readings['lel_pct'];
+  if (typeof lel === 'number' && Number.isFinite(lel) && lel > GAS_SAFETY_THRESHOLDS.lelMaxPct) {
+    offendingReadings.push({
+      field: `${sectionKey}.lel_pct`,
+      value: lel,
+      threshold: `<= ${GAS_SAFETY_THRESHOLDS.lelMaxPct}%`,
+      message: `LEL (${lel}%) exceeds maximum allowable limit (${GAS_SAFETY_THRESHOLDS.lelMaxPct}%)`,
+    });
+  }
+
+  const o2 = readings['o2_pct'];
+  if (
+    typeof o2 === 'number' &&
+    Number.isFinite(o2) &&
+    (o2 < GAS_SAFETY_THRESHOLDS.o2MinPct || o2 > GAS_SAFETY_THRESHOLDS.o2MaxPct)
+  ) {
+    offendingReadings.push({
+      field: `${sectionKey}.o2_pct`,
+      value: o2,
+      threshold: `${GAS_SAFETY_THRESHOLDS.o2MinPct}% - ${GAS_SAFETY_THRESHOLDS.o2MaxPct}%`,
+      message: `O2 (${o2}%) is outside safe atmospheric range (${GAS_SAFETY_THRESHOLDS.o2MinPct}% - ${GAS_SAFETY_THRESHOLDS.o2MaxPct}%)`,
+    });
+  }
+
+  const h2s = readings['h2s_ppm'];
+  if (typeof h2s === 'number' && Number.isFinite(h2s) && h2s > GAS_SAFETY_THRESHOLDS.h2sMaxPpm) {
+    offendingReadings.push({
+      field: `${sectionKey}.h2s_ppm`,
+      value: h2s,
+      threshold: `<= ${GAS_SAFETY_THRESHOLDS.h2sMaxPpm} ppm`,
+      message: `H2S (${h2s} ppm) exceeds permissible exposure limit (${GAS_SAFETY_THRESHOLDS.h2sMaxPpm} ppm)`,
+    });
+  }
+
+  const co = readings['co_ppm'];
+  if (typeof co === 'number' && Number.isFinite(co) && co > GAS_SAFETY_THRESHOLDS.coMaxPpm) {
+    offendingReadings.push({
+      field: `${sectionKey}.co_ppm`,
+      value: co,
+      threshold: `<= ${GAS_SAFETY_THRESHOLDS.coMaxPpm} ppm`,
+      message: `CO (${co} ppm) exceeds safety threshold (${GAS_SAFETY_THRESHOLDS.coMaxPpm} ppm)`,
+    });
+  }
+
+  if (offendingReadings.length > 0) {
+    return {
+      valid: false,
+      code: 'UNSAFE_ATMOSPHERE',
+      message: offendingReadings.map((r) => r.message).join('; '),
+      details: { offendingReadings },
+    };
+  }
+
+  return { valid: true };
+}
 
 export const PermitTypeCode = {
   HOT_WORK: 'HOT_WORK',
@@ -252,6 +334,18 @@ const BUILTIN_PERMIT_TYPES: Record<string, PermitTypeConfig> = {
     description: 'Work involving naked flames, sparks, welding, grinding, or heat production.',
     fields: HOT_WORK_FIELDS,
     requiredApproverRoles: [UserRole.AREA_OWNER, UserRole.SAFETY_OFFICER],
+    rules: [
+      {
+        id: 'HOT_WORK_GAS_SAFETY_THRESHOLDS',
+        description:
+          'Hot work gas test readings must fall within safe atmospheric limits on submit.',
+        validate: ({ details }) =>
+          evaluateGasThresholds(
+            'gas_test',
+            details['gas_test'] as Record<string, unknown> | undefined
+          ),
+      },
+    ],
   },
   [PermitTypeCode.CONFINED_SPACE]: {
     code: PermitTypeCode.CONFINED_SPACE,
@@ -261,10 +355,23 @@ const BUILTIN_PERMIT_TYPES: Record<string, PermitTypeConfig> = {
     requiredApproverRoles: [UserRole.AREA_OWNER, UserRole.SAFETY_OFFICER],
     rules: [
       {
+        id: 'CONFINED_SPACE_GAS_SAFETY_THRESHOLDS',
+        description:
+          'Confined space pre-entry atmosphere readings must fall within safe limits on submit.',
+        validate: ({ details }) =>
+          evaluateGasThresholds(
+            'atmosphere_test',
+            details['atmosphere_test'] as Record<string, unknown> | undefined
+          ),
+      },
+      {
         id: 'CONFINED_SPACE_GAS_TEST_WINDOW',
         description:
           'Confined space atmosphere test must be recorded within 60 minutes before planned start.',
         validate: ({ details, plannedStart }) => {
+          if (!plannedStart || Number.isNaN(plannedStart.getTime())) {
+            return { valid: true };
+          }
           const test = details['atmosphere_test'] as
             | { tested_at?: string | number | Date }
             | undefined;

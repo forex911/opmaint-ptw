@@ -14,11 +14,23 @@ export const guardNoSelfAction = (ctx: TransitionContext): GuardResult => {
 };
 
 export const guardRequesterOwnership = (ctx: TransitionContext): GuardResult => {
-  if (ctx.actor.role === UserRole.REQUESTER && ctx.actor.id !== ctx.permit.requesterId) {
+  if (ctx.actor.role !== UserRole.ADMIN && ctx.actor.id !== ctx.permit.requesterId) {
     return {
       ok: false,
       code: 'NOT_PERMIT_OWNER',
       message: 'Only the permit requester or an authorized administrator can perform this action',
+    };
+  }
+  return { ok: true };
+};
+
+export const guardClosureVerifySeparation = (ctx: TransitionContext): GuardResult => {
+  if (ctx.actor.id && ctx.closedBy && ctx.closedBy === ctx.actor.id) {
+    return {
+      ok: false,
+      code: 'DUTIES_SEPARATION_VIOLATION',
+      message:
+        'Separation of duties violation: the actor who closed this permit cannot verify its closure',
     };
   }
   return { ok: true };
@@ -96,7 +108,8 @@ export const guardSeparationOfDuties = (ctx: TransitionContext): GuardResult => 
 };
 
 export const guardMandatoryComment = (ctx: TransitionContext): GuardResult => {
-  const comment = (ctx.payload?.comment as string)?.trim();
+  const raw = ctx.payload?.comment;
+  const comment = typeof raw === 'string' ? raw.trim() : '';
   if (!comment) {
     return {
       ok: false,
@@ -108,8 +121,8 @@ export const guardMandatoryComment = (ctx: TransitionContext): GuardResult => {
 };
 
 export const guardMandatoryCompletionNotes = (ctx: TransitionContext): GuardResult => {
-  const notes =
-    ((ctx.payload?.completionNotes || ctx.payload?.completion_notes || ctx.payload?.comment) as string)?.trim();
+  const raw = ctx.payload?.completionNotes ?? ctx.payload?.completion_notes;
+  const notes = typeof raw === 'string' ? raw.trim() : '';
   if (!notes) {
     return {
       ok: false,
@@ -159,6 +172,22 @@ export const guardSubmitDetails = (ctx: TransitionContext): GuardResult => {
   );
 
   if (!validation.valid) {
+    const unsafeIssues = validation.issues.filter((i) => i.code === 'UNSAFE_ATMOSPHERE');
+    if (unsafeIssues.length > 0) {
+      return {
+        ok: false,
+        code: 'UNSAFE_ATMOSPHERE',
+        message: `Unsafe atmospheric readings detected: ${unsafeIssues.map((i) => i.message).join('; ')}`,
+        details: {
+          offendingReadings: unsafeIssues.map((i) => ({
+            field: i.path.join('.'),
+            message: i.message,
+            ...(i.details ?? {}),
+          })),
+        },
+      };
+    }
+
     const errorMessages = validation.issues
       .map((i) => `${i.path.join('.')}: ${i.message}`)
       .join('; ');
