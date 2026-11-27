@@ -260,10 +260,10 @@ This log records every architectural decision, rejected alternative, and trade-o
   - *Option B*: Universal read access for all authenticated plant personnel across all plants, areas, and equipment, while strictly guarding all mutating operations (`submit`, `approve`, `reject`, `activate`, `suspend`, `resume`, `close`, `verify`, `cancel`, `work-logs`, `extensions`) via server-side role and ownership checks.
 - **Decision**: Option B — Universal read visibility for authenticated users.
 - **Consequences**:
-  - Any authenticated user (`requireAuth`) can list and read permits, view statistics dashboards, and inspect audit event timelines.
+  - Any authenticated user (`requireAuth`) can list and read submitted permits (`PENDING_APPROVAL` onward), view statistics dashboards, and inspect audit event timelines.
   - No user can mutate a permit or perform lifecycle transitions without satisfying strict role barriers, ownership checks, and pure transition guards.
   - Improves operational plant transparency and prevents hazardous spatial blindspots.
-- **Status**: Accepted
+- **Status**: Accepted; amended by `D-033` for `DRAFT` permit privacy (`DRAFT` permits remain visible only to their requester and `ADMIN`).
 
 ---
 
@@ -435,6 +435,19 @@ This log records every architectural decision, rejected alternative, and trade-o
   - UI warnings and API enforcement cannot drift out of sync.
   - Thresholds are currently shared across facilities; per-plant industrial hygiene tolerances would move into database configuration if multi-site policies diverge.
 - **Status**: Accepted
+
+---
+
+### D-033 DRAFT Permit Visibility Restricted to Requester Owner & ADMIN (Amends D-020)
+- **Context**: Under `D-020`, universal read visibility allowed `AREA_OWNER`, `SAFETY_OFFICER`, and other `REQUESTER` users to view unsubmitted `DRAFT` permits in lists, searches, statistics counts, detail pages, and audit timelines—leaking unfinished work-in-progress permits before submission and returning `403` instead of hiding draft existence.
+- **Options considered**:
+  - *Option A*: Filter `DRAFT` rows ad hoc per route handler and return `403 FORBIDDEN` on direct `GET /api/permits/:id` hits. (Rejected: duplicates visibility logic across routes and reveals draft existence via `403`.)
+  - *Option B*: Centralize one canonical predicate helper (`canViewPermit`, `assertPermitVisible`, `buildPermitVisibilitySql` in `permit-visibility.ts`) enforcing that `DRAFT` permits are visible strictly to `permit.requesterId === actor.id` or `actor.role === 'ADMIN'`, while preserving universal authenticated visibility from `PENDING_APPROVAL` onward. Non-owners/non-admins receive HTTP `404 NOT_FOUND` on direct reads (`GET /:id`, `/audit`, `work-logs`) and mutations (`PATCH`, `/submit`, etc.) and zero inclusion in lists, search, pagination totals, or dashboard stats.
+- **Decision**: Option B — Single-source-of-truth draft privacy predicate with `404` non-disclosure, amending `D-020`.
+- **Consequences**:
+  - Unsubmitted drafts (`PTW-2026-0007` and newly saved drafts) remain private to the author and `ADMIN` across all API read/write surfaces.
+  - Upon `submit` (`PENDING_APPROVAL`), permits immediately become visible to all authenticated facility personnel as intended by `D-020`.
+- **Status**: Accepted (amends `D-020`)
 
 
 

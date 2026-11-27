@@ -26,6 +26,8 @@ All demo accounts share the password: `PtwPass2026!` (Clickable quick-fill butto
 | `SAFETY_OFFICER` | `safety.officer@cmms.local` | Plant Safety Superintendent | Provide second-tier approval, suspend an active permit on safety grounds, verify final closure. |
 | `ADMIN` | `admin@cmms.local` | System Administrator | Manage users, reset passwords, plants, areas (with owner handover), equipment, and admin activity in `/admin`. |
 
+> **Seeded Draft Visibility (`D-033`)**: Seeded `DRAFT` permit `PTW-2026-0007` belongs to `requester@cmms.local` and is visible only to its requester and `ADMIN` (`admin@cmms.local`). It does not appear in permit lists, search, stats, or details (`404`) for `area.owner@cmms.local` or `safety.officer@cmms.local` until submitted (`PENDING_APPROVAL`). Owners can edit every draft field on `/permits/:id/edit` before submitting.
+
 ---
 
 ## 2. 60-Second Reviewer Tour
@@ -182,9 +184,10 @@ stateDiagram-v2
 | **Suspend / Unsuspend** | No | No | Yes | Yes |
 | **Submit Closure** | Yes | No | No | Yes |
 | **Verify Closure** | No | No | Yes | Yes |
-| **View Permits & Stats** | Yes | Yes | Yes | Yes |
+| **View Permits & Stats** | Own drafts + Submitted+ | Submitted+ (hides others' drafts) | Submitted+ (hides others' drafts) | Yes (incl. all drafts) |
 
-- **Separation of Duties (D-019)**: Enforces the industrial Four-Eyes principle. Even an `ADMIN` cannot approve a permit where `requester_id === user.id`.
+- **Draft Visibility (`D-033`, amending `D-020`)**: `DRAFT` permits are visible only to their `requesterId` owner and `ADMIN` across permit lists, search, pagination totals, dashboard/stats counts, `GET /api/permits/:id`, audit logs, work logs, and draft actions (`404` otherwise). From `PENDING_APPROVAL` onward, permits remain visible to all authenticated facility users. Seeded `DRAFT` `PTW-2026-0007` belongs to `requester@cmms.local` and is hidden from `area.owner@cmms.local` and `safety.officer@cmms.local`.
+- **Separation of Duties (D-019, D-031)**: Enforces the industrial Four-Eyes principle. Even an `ADMIN` cannot approve a permit where `requester_id === user.id`, and the actor who closes a permit (`close`) cannot be the same actor who verifies closure (`verify`).
 - **Area Owner Snapshot & Reassignment (D-014, D-028)**: When a permit is submitted, `permit_approvals.required_user_id` snapshots the area owner. If an admin reassigns the area's owner via `/api/admin/areas/:id`, `PENDING` `AREA_OWNER` approvals on non-terminal permits transfer atomically with an `approver_reassigned` audit entry while signed-off decisions stay untouched.
 - **Soft Deactivation & Active Sessions (D-029)**: Deactivating a user blocks login and rejects existing session cookies (`401`); deactivating plants/areas/equipment requires zero open permits and zero active child records (`409 HAS_OPEN_PERMITS`, `409 HAS_ACTIVE_CHILDREN`).
 
@@ -217,13 +220,13 @@ Application services and API users cannot delete or modify audit records under a
 - **Atmospheric Re-Verification at Activation (`D-010`)**: Confined space permits are frequently approved days in advance. At the exact moment work begins, gas readings must be verified within the past 60 minutes.
 - **Work Logs Exclusively in `ACTIVE`**: Maintenance logs represent live on-site actions. Work cannot be logged on drafts, closed permits, or suspended jobs.
 - **Terminal Expiry**: If a scheduled window expires, facility conditions change (shift handovers, overlapping jobs). An expired permit cannot be extended or re-opened; a fresh permit must be drafted.
-- *Refer to [docs/DECISIONS.md](docs/DECISIONS.md) for ADRs D-001 through D-030.*
+- *Refer to [docs/DECISIONS.md](docs/DECISIONS.md) for ADRs D-001 through D-033.*
 
 ---
 
 ## 9. Assumptions & Specification Gaps
 
-- **Read Visibility (`D-020`)**: All authenticated facility users can view all permits and reference data to maintain facility-wide situational awareness.
+- **Read Visibility (`D-020`, amended by `D-033`)**: `DRAFT` permits are private to their requester owner and `ADMIN` (`404` for other roles); from `PENDING_APPROVAL` onward, all authenticated facility users can view permits and reference data to maintain facility-wide situational awareness.
 - **In-Flight Draft Modifications (`D-021`)**: Editing a permit while in `PENDING_APPROVAL` automatically invalidates and resets existing approvals back to `PENDING`.
 - **Equipment Assignment (`D-025`)**: Equipment is optional in `DRAFT` (for general plant areas), but strictly required upon `SUBMIT`.
 
@@ -279,27 +282,29 @@ npm run dev
 Current test counts verified directly against the codebase:
 
 ```text
-Test Files  24 passed (24)
-Tests       289 passed (289)
+Test Files  27 passed (27)
+Tests       310 passed (310)
 Typecheck   0 errors across @ptw/shared, @ptw/api, @ptw/web
 ```
 
-- `@ptw/shared` (6 tests): Dynamic Zod schema compiler, type registry, excavation registration.
-- `@ptw/api` (242 tests across 13 files):
+- `@ptw/shared` (9 tests in `schema-generator.test.ts`): Dynamic Zod schema compiler, type registry, excavation registration, draft normalization, gas-test error field paths.
+- `@ptw/api` (251 tests across 15 files):
   - `transition.test.ts` (104 tests): Table-driven state machine matrix, pure guards, lazy expiry.
   - `integration-workflows.test.ts` (28 tests): Full multi-role user journeys, rejections, separation of duties.
-  - `permits.test.ts` (21 tests): CRUD, filtering, pagination, location consistency.
+  - `permits.test.ts` (21 tests): CRUD, filtering, pagination, location consistency, draft privacy (`404`).
   - `auth.test.ts` (20 tests): Login rate limiting, cookie authentication, active-user check (`401`), role middleware.
   - `sweeper.test.ts` (15 tests): Distributed row locking, background cron, webhook sweeping.
   - `admin.test.ts` (12 tests): Admin guards, CRUD, password resets without log leaks, `D-028` reassignment, `HAS_OPEN_PERMITS`, `?includeInactive=true`.
   - `schema.test.ts` (12 tests): Migration execution, `audit_log` & `admin_audit_log` trigger immutability, seed idempotency.
   - `spec-compliance.test.ts` (9 tests): Explicit specification compliance test suite.
   - `env.test.ts` (8 tests): Environment variable validation.
+  - `audit-stage1-regressions.test.ts` (6 tests): UUID validation (`422`), payload limits (`413`), strict ownership, mandatory reasons, gas limits (`UNSAFE_ATMOSPHERE`).
   - `equipment-cascade.test.ts` (6 tests): Location hierarchy cascading.
   - `concurrency.test.ts` (4 tests): `SELECT ... FOR UPDATE` serialization.
+  - `draft-visibility-editing.test.ts` (3 tests): Multi-role `DRAFT` privacy (`404`), full draft updates incl. `precautions`/`type`, structured `submit` 422 field errors.
   - `permits.contract.test.ts` (2 tests): API response DTO contract conformance.
   - `permits.pagination.test.ts` (1 test): Pagination metadata.
-- `@ptw/web` (41 tests across 10 files): API client (`7`), error boundary/detail lifecycle (`11`), status badges (`5`), equipment cascade (`4`), dynamic checklists (`3`), admin route guard (`3`), admin console tabs/modals (`3`), pagination (`2`), login (`2`), session reload screen (`1`).
+- `@ptw/web` (50 tests across 11 files): `PermitDetailPage.test.tsx` (`16`), `api/client.test.ts` (`7`), `StatusBadge.test.tsx` (`5`), `DynamicFields.test.tsx` (`4`), `CreatePermitPage.test.tsx` (`4`), `AdminRoute.test.tsx` (`3`), `EditDraftPermit.test.tsx` (`3`), `AdminPage.test.tsx` (`3`), `LoginPage.test.tsx` (`2`), `PermitsListPage.test.tsx` (`2`), `ProtectedRoute.test.tsx` (`1`).
 
 ---
 
@@ -363,14 +368,14 @@ Typecheck   0 errors across @ptw/shared, @ptw/api, @ptw/web
 │       ├── src/
 │       │   ├── components/       # UI elements, admin console tabs, guards, error boundaries
 │       │   ├── context/          # Auth and permit session state
-│       │   └── pages/            # Login, Overview, Permits List, Create, Details, Admin Console
+│       │   └── pages/            # Login, Overview, Permits List, Create, Edit, Details, Admin Console
 │       └── vercel.json           # Reverse-proxy rewrite rules to Render API
 ├── packages/
 │   └── shared/                   # Shared types, Zod schemas, permit registry
 ├── docs/                         # Engineering documentation & ADRs
 │   ├── ARCHITECTURE.md           # System components & data flows
 │   ├── API.md                    # Endpoint contracts & error payloads
-│   ├── DECISIONS.md              # Architecture Decision Records (D-001 - D-030)
+│   ├── DECISIONS.md              # Architecture Decision Records (D-001 - D-033)
 │   ├── PROGRESS.md               # Chronological engineering task log
 │   ├── AI_USAGE.md               # AI transparency log & human corrections
 │   └── KNOWN_ISSUES.md           # Technical debt & deferred features

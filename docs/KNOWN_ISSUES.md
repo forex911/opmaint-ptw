@@ -63,6 +63,9 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Future Scope**: Per-plant threshold overrides can be moved to plant configuration tables if industrial sites require custom atmospheric limits.
 - **Stage 1 Browser Verification**: Stage 1 UI fixes (`PermitDetailPage.tsx` modal validation hints and `DynamicFields.tsx` null-safe gas warnings) are verified in Vitest `jsdom` unit tests (`DynamicFields.test.tsx`, `PermitDetailPage.test.tsx`); live Chrome browser end-to-end QA against the running stack remains UNVERIFIED pending Stage 3/4 completion.
 
+### 12. Hotfix Browser Verification Scope (`fix/draft-visibility-and-editing`)
+- **UI Verification**: Full `/permits/:id/edit` wizard hydration, repeated `version`-refreshed saves, step-jumping on 422 submit errors, and `PermitDetailPage.tsx` navigation are verified in Vitest `jsdom` (`EditDraftPermit.test.tsx`, `PermitDetailPage.test.tsx`); live browser verification against deployed Vercel/Render remains UNVERIFIED until manually checked.
+
 
 
 

@@ -168,6 +168,19 @@ This document tracks all AI-assisted engineering activities, prompts, generated 
   - **Test Isolation on Immutable Audit Log**: Replaced temporary user creation inside `audit-stage1-regressions.test.ts` with seeded role accounts (`requester`, `safety.officer`, `area.owner`, `admin`) so `users` row counts (`5`) and active `ADMIN` counts (`1`) remain clean for `schema.test.ts` and `admin.test.ts`.
   - **`body-parser` 413 Envelope Discovery**: Red-phase testing caught that Express's default 100kb limit threw `PayloadTooLargeError`, which `errorHandler` previously turned into HTTP `500` until explicit `status === 413` / `entity.too.large` handling was added.
 
+---
+
+## Hotfix: Draft Visibility & Full Draft Editing (`fix/draft-visibility-and-editing`)
+
+- **AI-Assisted Deliverables**:
+  - Bug A: Single visibility predicate module `permit-visibility.ts` (`D-033` amending `D-020`) applied across list, search (`?search=`), stats, detail, audit timeline, work-logs, update, and transition engine (`404` non-disclosure for non-owners/non-admins on `DRAFT`).
+  - Bug B: Migration `0005_permits_precautions.sql`, `precautions` & `type` PATCH support with field diffs, `getAllowedActions` always offering `submit` on owner `DRAFT`, aggregated per-field `422` errors on `submit`, shared `PermitWizard.tsx`, `/permits/:id/edit` (`EditPermitPage.tsx`), and step-jumping inline errors.
+  - Live reproduction probes and Red->Green regression suites (`draft-visibility-editing.test.ts`, `EditDraftPermit.test.tsx`, `PermitDetailPage.test.tsx`).
+- **Human Review & Corrections**:
+  - **`ApiError` Constructor Signature & Test Mock Fix**: Initial UI test mocks invoked `new ApiError(422, 'VALIDATION_ERROR', ...)` instead of the actual `ApiError(status, { code, message, details })` signature, masking `422` detail extraction until corrected.
+  - **Existing Test Alignment (`D-033`)**: Updated `permits.test.ts` (`areaOwnerAgent` PATCH on `DRAFT` expecting `404` rather than `403`) and `audit-stage1-regressions.test.ts` (non-owner `POST /submit` on `DRAFT` expecting `404` rather than `403`, while non-DRAFT `/activate` and `/close` remain `403 NOT_PERMIT_OWNER`).
+  - **Numeric Draft Normalization in `@ptw/shared`**: Replaced bare `z.coerce.number()` with empty/null-safe `z.preprocess()` so clearing draft numbers never emits `"Expected number, received nan"` on `submit` and empty `''` fields stay permissive in `draft` mode.
+
 
 
 
