@@ -8,6 +8,7 @@ import { authRouter } from './modules/auth/auth.routes.js';
 import { referenceRouter } from './modules/reference/reference.routes.js';
 import { permitsRouter } from './modules/permits/permits.routes.js';
 import { internalRouter } from './modules/internal/internal.routes.js';
+import { adminRouter } from './modules/admin/admin.routes.js';
 
 export function createApp(configure?: (app: Express) => void): Express {
   const app = express();
@@ -47,6 +48,7 @@ export function createApp(configure?: (app: Express) => void): Express {
   // Mount API routers
   app.use('/api/auth', authRouter);
   app.use('/api/permits', permitsRouter);
+  app.use('/api/admin', adminRouter);
   app.use('/api', referenceRouter);
   app.use('/internal', internalRouter);
 

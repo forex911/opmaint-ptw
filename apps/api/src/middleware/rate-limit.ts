@@ -36,3 +36,35 @@ export function loginRateLimiter(options: LoginRateLimitOptions = {}) {
   });
 }
 
+interface AdminRateLimitOptions {
+  windowMs?: number;
+  maxRequests?: number;
+  message?: string;
+}
+
+/**
+ * Rate limiter protecting sensitive admin identity and password mutations.
+ */
+export function adminRateLimiter(options: AdminRateLimitOptions = {}) {
+  const windowMs = options.windowMs ?? 15 * 60 * 1000;
+  const maxRequests =
+    options.maxRequests ?? (process.env.NODE_ENV === 'test' ? 500 : 60);
+  const message =
+    options.message ?? 'Too many administrative user requests. Please try again later.';
+
+  return rateLimit({
+    windowMs,
+    limit: maxRequests,
+    keyGenerator: (req) => {
+      const ip = ipKeyGenerator(req.ip || '127.0.0.1');
+      const actor = req.user?.id || 'anon';
+      return `admin:${actor}:${ip}`;
+    },
+    handler: (_req, _res, next) => {
+      return next(AppError.rateLimit(message));
+    },
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+}
+
