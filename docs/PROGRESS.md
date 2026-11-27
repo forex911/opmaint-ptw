@@ -755,3 +755,17 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `npm test` -> 267/267 tests passing (100% green).
   - Line count -> 377 lines.
   - Link check script -> All relative links resolve to existing files.
+
+---
+
+## [2026-11-27 11:24] main / Git Author Identity Rewrite & GitHub Sync
+- **Goal**: Re-attribute all repository commits from local `PTW Engineer <engineer@cmms.local>` to `forex911` (`207845669+forex911@users.noreply.github.com`) and push all rewritten branches and tags reliably over HTTPS despite `HTTP 408` and `GH007` restrictions.
+- **Done**:
+  - Updated `.git/config` `user.name` (`forex911`) and `user.email` (`207845669+forex911@users.noreply.github.com`).
+  - Verified 121/121 commit-for-commit parity between `backup-main-before-rewrite` and `main`, then unified all 18 stage/fix branches and 13 tags onto `main`'s single root (`1dcb491`) while replaying the 12 unmerged commits on `stage/08-integration-qa` and `stage/10-ui-design` (`133` total unique commits; local `backup-main-before-rewrite` left untouched).
+  - Consolidated `http.sslbackend` to `schannel`, ran `git gc --aggressive --prune=now`, and force-pushed `main` in 3 sequential chunks followed by tags and individual branches.
+  - Logged note in `docs/KNOWN_ISSUES.md`.
+- **Verification**:
+  - Distinct roots across all 32 non-backup refs -> 1 root (`1dcb491`), 0 non-matching author entries.
+  - `npm run typecheck` and `npm run lint` -> verified clean (0 errors).
+

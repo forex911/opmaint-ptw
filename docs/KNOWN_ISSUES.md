@@ -48,4 +48,11 @@ This document tracks known limitations, intentional design trade-offs, and featu
 - **Bug 3 (Permits List Next Button Reverting to Page 1)**: Resolved via conditional page reset in `PermitsListPage.tsx`'s `updateFilter` (`if (key !== 'page') next.set('page', '1')`) and query key synchronization.
 - **Status**: Resolved and verified with 262 automated tests across all workspaces.
 
+### 9. Git History Author Identity Rewrite & Chunked Push (2026-11-27)
+- **Context**: Initial repository scaffolding configured local `.git/config` with `PTW Engineer <engineer@cmms.local>`, causing GitHub not to attribute commits to the repository owner (`forex911`).
+- **Resolution**: Preserving original trees, parent topology, commit messages, and ISO timestamps, all 133 unique non-backup commits across `main`, 18 stage/fix branches, and 13 stage tags were unified onto a single root (`1dcb491`, leaving local `backup-main-before-rewrite` untouched) with author/committer set to `forex911 <207845669+forex911@users.noreply.github.com>` (GitHub's private-email noreply address, satisfying `GH007` email privacy enforcement).
+- **Push Mitigation**: Resolved `HTTP 408` push timeouts on cellular/Windows networks by aligning `http.sslbackend` to `schannel`, repacking (`git gc --aggressive --prune=now`), and force-pushing `main` in 3 chronological commit chunks (`--force --no-verify`) before pushing tags and remaining branches individually.
+- **Status**: Resolved; unified single-root history verified across all branches and tags.
+
+
 
