@@ -221,9 +221,13 @@ describe('Bug B UI Regression: EditPermitPage full draft hydration, version refr
       permit: { ...basePermit, version: 2 } as any,
     });
     vi.spyOn(clientModule.api, 'submitPermit').mockRejectedValue(
-      new ApiError(422, 'VALIDATION_ERROR', 'Select equipment from the chosen area', {
-        equipmentId: ['Select equipment from the chosen area'],
-        extinguisher_type: ['Fire Extinguisher Type is required'],
+      new ApiError(422, {
+        code: 'VALIDATION_ERROR',
+        message: 'Select equipment from the chosen area',
+        details: {
+          equipmentId: ['Select equipment from the chosen area'],
+          extinguisher_type: ['Fire Extinguisher Type is required'],
+        },
       })
     );
 
@@ -242,5 +246,36 @@ describe('Bug B UI Regression: EditPermitPage full draft hydration, version refr
       expect(screen.getByText(/Step 2: Job Description, Location & Window/i)).toBeInTheDocument();
     });
     expect(screen.getAllByText(/Select equipment from the chosen area/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('jumps directly to Step 3 and displays field-level dynamic detail errors on submit', async () => {
+    vi.spyOn(clientModule.api, 'updatePermit').mockResolvedValue({
+      permit: { ...basePermit, equipmentId: 'eq-1', version: 2 } as any,
+    });
+    vi.spyOn(clientModule.api, 'submitPermit').mockRejectedValue(
+      new ApiError(422, {
+        code: 'VALIDATION_ERROR',
+        message: 'Permit details validation failed',
+        details: {
+          extinguisher_type: ['Fire Extinguisher Type is required'],
+          'gas_test.lel_pct': ['LEL (12%) exceeds maximum allowable limit (10%)'],
+        },
+      })
+    );
+
+    renderEditPage();
+
+    await waitFor(() => {
+      expect(screen.getByText(/Edit Draft Permit PTW-2026-0042/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByText(/Review & Submit/i));
+    fireEvent.click(screen.getByRole('button', { name: /Submit for Approval/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Hot Work Permit Specification Details/i)).toBeInTheDocument();
+    });
+    expect(screen.getAllByText(/Fire Extinguisher Type is required/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/LEL \(12%\) exceeds maximum allowable limit/i).length).toBeGreaterThanOrEqual(1);
   });
 });

@@ -94,20 +94,22 @@ export const DynamicFields: React.FC<DynamicFieldsProps> = ({
 
       case 'boolean':
         return (
-          <div key={field.key} className="flex items-center gap-3 p-3.5 rounded-lg border border-slate-200 bg-slate-50/50">
-            <input
-              type="checkbox"
-              id={field.key}
-              checked={!!value}
-              onChange={(e) => onChange(field.key, e.target.checked)}
-              disabled={readOnly}
-              className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
-            />
-            <label htmlFor={field.key} className="text-sm font-medium text-[#172033] cursor-pointer">
-              {field.label}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
-            </label>
-            {fieldError && <p className="mt-1 text-xs text-red-600 font-medium">{fieldError}</p>}
+          <div key={field.key} className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50">
+            <div className="flex items-center gap-3">
+              <input
+                type="checkbox"
+                id={field.key}
+                checked={!!value}
+                onChange={(e) => onChange(field.key, e.target.checked)}
+                disabled={readOnly}
+                className="w-4 h-4 text-emerald-600 rounded border-slate-300 focus:ring-emerald-500"
+              />
+              <label htmlFor={field.key} className="text-sm font-medium text-[#172033] cursor-pointer">
+                {field.label}
+                {field.required && <span className="text-red-500 ml-1">*</span>}
+              </label>
+            </div>
+            {fieldError && <p className="mt-1.5 text-xs text-red-600 font-medium">{fieldError}</p>}
           </div>
         );
 

@@ -9,6 +9,7 @@ import { LoginPage } from './pages/LoginPage.js';
 import { DashboardPage } from './pages/DashboardPage.js';
 import { PermitsListPage } from './pages/PermitsListPage.js';
 import { CreatePermitPage } from './pages/CreatePermitPage.js';
+import { EditPermitPage } from './pages/EditPermitPage.js';
 import { PermitDetailPage } from './pages/PermitDetailPage.js';
 import { AdminPage } from './pages/AdminPage.js';
 
@@ -55,6 +56,15 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <CreatePermitPage />
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/permits/:id/edit"
+                element={
+                  <ProtectedRoute>
+                    <EditPermitPage />
                   </ProtectedRoute>
                 }
               />

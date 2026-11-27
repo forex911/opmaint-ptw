@@ -353,9 +353,13 @@ describe('PermitDetailPage Component', () => {
 
       vi.spyOn(clientModule.api, 'getPermit').mockResolvedValue(mockDetail as any);
       vi.spyOn(clientModule.api, 'submitPermit').mockRejectedValue(
-        new clientModule.ApiError(422, 'VALIDATION_ERROR', 'Select equipment from the chosen area', {
-          equipmentId: ['Select equipment from the chosen area'],
-          extinguisher_type: ['Fire Extinguisher Type is required'],
+        new clientModule.ApiError(422, {
+          code: 'VALIDATION_ERROR',
+          message: 'Select equipment from the chosen area',
+          details: {
+            equipmentId: ['Select equipment from the chosen area'],
+            extinguisher_type: ['Fire Extinguisher Type is required'],
+          },
         })
       );
 
