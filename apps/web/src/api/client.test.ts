@@ -144,4 +144,24 @@ describe('Web API Client Contract & Normalization Suite', () => {
     await api.verifyPermit('p-1', 'Site verified safe');
     expect(capturedUrl).toBe('/api/permits/p-1/verify');
   });
+
+  it('passes includeInactive=true on location lookups and calls admin endpoints', async () => {
+    const capturedCalls: Array<{ url: string; method?: string }> = [];
+    global.fetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      capturedCalls.push({ url, method: init?.method || 'GET' });
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ users: [], items: [], pagination: { total: 0, page: 1, limit: 15, totalPages: 1 } }),
+      };
+    });
+
+    await api.getAreas(undefined, { includeInactive: true });
+    await api.resetAdminUserPassword('u-1', { password: 'NewPassword1234' });
+    await api.getAdminActivity({ entityType: 'USER', page: 2 });
+
+    expect(capturedCalls[0]).toEqual({ url: '/api/areas?includeInactive=true', method: 'GET' });
+    expect(capturedCalls[1]).toEqual({ url: '/api/admin/users/u-1/reset-password', method: 'POST' });
+    expect(capturedCalls[2]).toEqual({ url: '/api/admin/activity?entityType=USER&page=2', method: 'GET' });
+  });
 });

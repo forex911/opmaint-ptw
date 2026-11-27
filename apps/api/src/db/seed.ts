@@ -204,10 +204,10 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
       const passwordHash = await bcrypt.hash(account.passwordPlain, 10);
       const res = await client.query(
         `
-        INSERT INTO users (name, email, password_hash, role)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO users (name, email, password_hash, role, is_active)
+        VALUES ($1, $2, $3, $4, true)
         ON CONFLICT (email) DO UPDATE 
-        SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role
+        SET name = EXCLUDED.name, password_hash = EXCLUDED.password_hash, role = EXCLUDED.role, is_active = true
         RETURNING id;
       `,
         [account.name, account.email, passwordHash, account.role]
@@ -226,10 +226,10 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
     for (const plant of SEED_PLANTS) {
       const res = await client.query(
         `
-        INSERT INTO plants (code, name, address)
-        VALUES ($1, $2, $3)
+        INSERT INTO plants (code, name, address, is_active)
+        VALUES ($1, $2, $3, true)
         ON CONFLICT (code) DO UPDATE
-        SET name = EXCLUDED.name, address = EXCLUDED.address
+        SET name = EXCLUDED.name, address = EXCLUDED.address, is_active = true
         RETURNING id;
       `,
         [plant.code, plant.name, plant.address]
@@ -247,10 +247,10 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
 
       const res = await client.query(
         `
-        INSERT INTO areas (plant_id, code, name, owner_id)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO areas (plant_id, code, name, owner_id, is_active)
+        VALUES ($1, $2, $3, $4, true)
         ON CONFLICT (plant_id, code) DO UPDATE
-        SET name = EXCLUDED.name, owner_id = EXCLUDED.owner_id
+        SET name = EXCLUDED.name, owner_id = EXCLUDED.owner_id, is_active = true
         RETURNING id;
       `,
         [plantId, area.code, area.name, ownerId]
@@ -267,10 +267,10 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
 
       const res = await client.query(
         `
-        INSERT INTO equipment (area_id, tag, name)
-        VALUES ($1, $2, $3)
+        INSERT INTO equipment (area_id, tag, name, is_active)
+        VALUES ($1, $2, $3, true)
         ON CONFLICT (tag) DO UPDATE
-        SET area_id = EXCLUDED.area_id, name = EXCLUDED.name
+        SET area_id = EXCLUDED.area_id, name = EXCLUDED.name, is_active = true
         RETURNING id;
       `,
         [areaId, eq.tag, eq.name]

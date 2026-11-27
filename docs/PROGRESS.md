@@ -769,3 +769,34 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - Distinct roots across all 32 non-backup refs -> 1 root (`1dcb491`), 0 non-matching author entries.
   - `npm run typecheck` and `npm run lint` -> verified clean (0 errors).
 
+---
+
+## [2026-11-27 15:05] feat/admin-management / Full Admin Management (Users, Locations, Reassignment, Admin Console UI)
+- **Goal**: Replace read-only reference data with full server-authoritative Administration (users, password resets, plants, areas with live owner reassignment, equipment, soft deactivation, append-only `admin_audit_log`, and responsive `/admin` frontend UI).
+- **Done**:
+  - **Phase 1 (DB, Shared & API)**:
+    - Added migration `0004_admin_management_and_audit_log.sql` (`is_active` columns/indexes on `users`, `plants`, `areas`, `equipment`; append-only `admin_audit_log` with row + truncate triggers and `ptw_app_user` privilege revocation) and Drizzle schema modules.
+    - Recorded `D-028` (amending `D-014`: owner changes atomically reassign `PENDING` `AREA_OWNER` approvals on non-terminal permits with `approver_reassigned` `audit_log` entries), `D-029`, and `D-030` in `docs/DECISIONS.md`.
+    - Standardized shared DTOs (`UserDto`, `PlantDto`, `AreaDto`, `EquipmentDto`, `AdminAuditLogDto`) and Zod schemas in `packages/shared`, plus mapped 7 `409` codes in `guard-codes.ts`.
+    - Enforced `is_active` in `requireAuth` and `auth.service.ts` (`401` on deactivated sessions/logins), filtered public reference endpoints (`ADMIN`-only `?includeInactive=true`), and rejected inactive locations in `validateLocationConsistency` (`422`).
+    - Implemented `admin.guards.ts`, `admin.service.ts`, `admin.controller.ts`, `admin.routes.ts`, and `adminRateLimiter`.
+  - **Phase 2 (Frontend `/admin` UI, Tests & Docs)**:
+    - Standardized web DTO types (`types/index.ts`), updated `api/client.ts` with Admin CRUD/activity methods and `includeInactive`, updated `PermitsListPage.tsx` (`includeInactive: isAdmin`) and `CreatePermitPage.tsx` (`eq.tag`).
+    - Built `AdminRoute.tsx`, updated `Shell.tsx` (`Admin Console` -> `/admin`), redirected `/reference -> /admin` in `App.tsx` (removing `ReferenceDataPage.tsx`), and created responsive `AdminPage.tsx` + `UsersTab`, `PlantsTab`, `AreasTab`, `EquipmentTab`, `ActivityTab` (desktop tables + 390px mobile cards).
+    - Added `AdminRoute.test.tsx`, `AdminPage.test.tsx`, and expanded `client.test.ts` + `PermitsListPage.test.tsx`.
+    - Updated `docs/API.md`, `docs/KNOWN_ISSUES.md`, `docs/AI_USAGE.md`, `CHANGELOG.md`, and `README.md`.
+- **Commits**:
+  - `9495480` feat(admin): add migration 0004, shared DTOs, active auth enforcement, and reference filtering
+  - `288e187` feat(admin): implement admin guards, CRUD routes, approval reassignment (D-028), and tests
+  - `47221e0` feat(admin): add responsive Admin Console UI, AdminRoute guard, and web tests
+- **Verification**:
+  - `npm run typecheck` & `npm run lint` -> 0 errors across `@ptw/shared`, `@ptw/api`, `@ptw/web`.
+  - `@ptw/shared`: 6/6 passed (`schema-generator.test.ts`).
+  - `@ptw/api`: 242/242 passed across 13 suites (`admin.test.ts` 12, `auth.test.ts` 20, `schema.test.ts` 12, etc.).
+  - `@ptw/web`: 41/41 passed across 10 suites (`AdminRoute.test.tsx` 3, `AdminPage.test.tsx` 3, etc.).
+  - `npm run build:web` -> clean Vite bundle; migrations verified on both existing dev DB (`ptw_cmms`) and fresh DB (`ptw_fresh_test`, double-seeded, `ptw_app_user` insert/select probe verified).
+- **Decisions**:
+  - `D-028`, `D-029`, `D-030`.
+- **Next**: Manual browser QA checklist against deployed/local UI and merge `feat/admin-management` into `main` when ready.
+
+

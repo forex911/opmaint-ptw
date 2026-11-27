@@ -24,7 +24,7 @@ All demo accounts share the password: `PtwPass2026!` (Clickable quick-fill butto
 | `REQUESTER` | `requester@cmms.local` | Field Contractor / Requester | Draft a Hot Work permit, submit it, activate after approval, record work logs, submit closure. |
 | `AREA_OWNER` | `area.owner@cmms.local` | Manali Petrochemical — Alkylation Unit 02 | Review pending permits in assigned area, approve or reject with mandatory safety remarks. |
 | `SAFETY_OFFICER` | `safety.officer@cmms.local` | Plant Safety Superintendent | Provide second-tier approval, suspend an active permit on safety grounds, verify final closure. |
-| `ADMIN` | `admin@cmms.local` | System Administrator | Inspect system-wide plant/area reference data hierarchy, test emergency overrides. |
+| `ADMIN` | `admin@cmms.local` | System Administrator | Manage users, reset passwords, plants, areas (with owner handover), equipment, and admin activity in `/admin`. |
 
 ---
 
@@ -185,7 +185,8 @@ stateDiagram-v2
 | **View Permits & Stats** | Yes | Yes | Yes | Yes |
 
 - **Separation of Duties (D-019)**: Enforces the industrial Four-Eyes principle. Even an `ADMIN` cannot approve a permit where `requester_id === user.id`.
-- **Area Owner Snapshot (D-014)**: When a permit is submitted, the current assigned owner of the area is snapshotted into `permit_approvals`. Subsequent facility owner reassignments do not orphan in-flight safety approvals.
+- **Area Owner Snapshot & Reassignment (D-014, D-028)**: When a permit is submitted, `permit_approvals.required_user_id` snapshots the area owner. If an admin reassigns the area's owner via `/api/admin/areas/:id`, `PENDING` `AREA_OWNER` approvals on non-terminal permits transfer atomically with an `approver_reassigned` audit entry while signed-off decisions stay untouched.
+- **Soft Deactivation & Active Sessions (D-029)**: Deactivating a user blocks login and rejects existing session cookies (`401`); deactivating plants/areas/equipment requires zero open permits and zero active child records (`409 HAS_OPEN_PERMITS`, `409 HAS_ACTIVE_CHILDREN`).
 
 ### HTTP Error Codes
 - **`401 UNAUTHORIZED`**: Missing or invalid session cookie.
@@ -216,7 +217,7 @@ Application services and API users cannot delete or modify audit records under a
 - **Atmospheric Re-Verification at Activation (`D-010`)**: Confined space permits are frequently approved days in advance. At the exact moment work begins, gas readings must be verified within the past 60 minutes.
 - **Work Logs Exclusively in `ACTIVE`**: Maintenance logs represent live on-site actions. Work cannot be logged on drafts, closed permits, or suspended jobs.
 - **Terminal Expiry**: If a scheduled window expires, facility conditions change (shift handovers, overlapping jobs). An expired permit cannot be extended or re-opened; a fresh permit must be drafted.
-- *Refer to [docs/DECISIONS.md](docs/DECISIONS.md) for ADRs D-001 through D-027.*
+- *Refer to [docs/DECISIONS.md](docs/DECISIONS.md) for ADRs D-001 through D-030.*
 
 ---
 
@@ -278,26 +279,27 @@ npm run dev
 Current test counts verified directly against the codebase:
 
 ```text
-Test Files  21 passed (21)
-Tests       268 passed (268)
+Test Files  24 passed (24)
+Tests       289 passed (289)
 Typecheck   0 errors across @ptw/shared, @ptw/api, @ptw/web
 ```
 
 - `@ptw/shared` (6 tests): Dynamic Zod schema compiler, type registry, excavation registration.
-- `@ptw/api` (228 tests):
+- `@ptw/api` (242 tests across 13 files):
   - `transition.test.ts` (104 tests): Table-driven state machine matrix, pure guards, lazy expiry.
   - `integration-workflows.test.ts` (28 tests): Full multi-role user journeys, rejections, separation of duties.
   - `permits.test.ts` (21 tests): CRUD, filtering, pagination, location consistency.
-  - `spec-compliance.test.ts` (9 tests): Explicit specification compliance test suite.
+  - `auth.test.ts` (20 tests): Login rate limiting, cookie authentication, active-user check (`401`), role middleware.
   - `sweeper.test.ts` (15 tests): Distributed row locking, background cron, webhook sweeping.
-  - `concurrency.test.ts` (4 tests): `SELECT ... FOR UPDATE` serialization.
-  - `auth.test.ts` (19 tests): Login rate limiting, cookie authentication, role middleware.
-  - `schema.test.ts` (11 tests): Migration execution, trigger immutability, seed idempotency.
-  - `equipment-cascade.test.ts` (6 tests): Location hierarchy cascading.
-  - `permits.contract.test.ts` (2 tests): API response DTO contract conformance.
+  - `admin.test.ts` (12 tests): Admin guards, CRUD, password resets without log leaks, `D-028` reassignment, `HAS_OPEN_PERMITS`, `?includeInactive=true`.
+  - `schema.test.ts` (12 tests): Migration execution, `audit_log` & `admin_audit_log` trigger immutability, seed idempotency.
+  - `spec-compliance.test.ts` (9 tests): Explicit specification compliance test suite.
   - `env.test.ts` (8 tests): Environment variable validation.
+  - `equipment-cascade.test.ts` (6 tests): Location hierarchy cascading.
+  - `concurrency.test.ts` (4 tests): `SELECT ... FOR UPDATE` serialization.
+  - `permits.contract.test.ts` (2 tests): API response DTO contract conformance.
   - `permits.pagination.test.ts` (1 test): Pagination metadata.
-- `@ptw/web` (34 tests): API client, error boundary, status badges, dynamic checklists, equipment cascading, pagination controls, session reload verification.
+- `@ptw/web` (41 tests across 10 files): API client (`7`), error boundary/detail lifecycle (`11`), status badges (`5`), equipment cascade (`4`), dynamic checklists (`3`), admin route guard (`3`), admin console tabs/modals (`3`), pagination (`2`), login (`2`), session reload screen (`1`).
 
 ---
 
@@ -355,23 +357,25 @@ Typecheck   0 errors across @ptw/shared, @ptw/api, @ptw/web
 │   │   ├── src/
 │   │   │   ├── db/               # Drizzle schemas, migrations, seed script
 │   │   │   ├── middleware/       # Auth, role guard, rate limiting, error handling
-│   │   │   └── modules/          # Auth, permits, reference, and internal routes
+│   │   │   └── modules/          # Auth, admin, permits, reference, and internal routes
 │   │   └── vitest.config.ts      # API test configuration
 │   └── web/                      # React 18 + Vite frontend SPA
 │       ├── src/
-│       │   ├── components/       # UI elements, dynamic checklists, error boundaries
+│       │   ├── components/       # UI elements, admin console tabs, guards, error boundaries
 │       │   ├── context/          # Auth and permit session state
-│       │   └── pages/            # Login, Overview, Permits List, Create, Details
+│       │   └── pages/            # Login, Overview, Permits List, Create, Details, Admin Console
 │       └── vercel.json           # Reverse-proxy rewrite rules to Render API
 ├── packages/
 │   └── shared/                   # Shared types, Zod schemas, permit registry
 ├── docs/                         # Engineering documentation & ADRs
 │   ├── ARCHITECTURE.md           # System components & data flows
 │   ├── API.md                    # Endpoint contracts & error payloads
-│   ├── DECISIONS.md              # Architecture Decision Records (D-001 - D-027)
+│   ├── DECISIONS.md              # Architecture Decision Records (D-001 - D-030)
 │   ├── PROGRESS.md               # Chronological engineering task log
 │   ├── AI_USAGE.md               # AI transparency log & human corrections
 │   └── KNOWN_ISSUES.md           # Technical debt & deferred features
 ├── CHANGELOG.md                  # Release version history
+
+
 └── README.md                     # This document
 ```

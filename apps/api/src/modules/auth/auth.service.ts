@@ -24,7 +24,7 @@ export class AuthService {
     const normalizedEmail = input.email.toLowerCase().trim();
 
     const result = await pool.query(
-      'SELECT id, name, email, password_hash, role FROM users WHERE lower(email) = $1',
+      'SELECT id, name, email, password_hash, role, is_active FROM users WHERE lower(email) = $1',
       [normalizedEmail]
     );
 
@@ -37,7 +37,7 @@ export class AuthService {
     }
 
     const isMatch = await bcrypt.compare(input.password, user.password_hash);
-    if (!isMatch) {
+    if (!isMatch || !user.is_active) {
       throw AppError.unauthorized('Invalid email or password');
     }
 
@@ -50,6 +50,7 @@ export class AuthService {
         name: user.name,
         email: user.email,
         role: user.role,
+        isActive: user.is_active,
       },
       token,
     };
@@ -62,13 +63,13 @@ export class AuthService {
   async getMe(userId: string): Promise<AuthUser> {
     const pool = getPool();
     const result = await pool.query(
-      'SELECT id, name, email, role FROM users WHERE id = $1',
+      'SELECT id, name, email, role, is_active FROM users WHERE id = $1',
       [userId]
     );
 
     const user = result.rows[0];
-    if (!user) {
-      throw AppError.unauthorized('User not found');
+    if (!user || !user.is_active) {
+      throw AppError.unauthorized('User not found or inactive');
     }
 
     return {
@@ -76,6 +77,7 @@ export class AuthService {
       name: user.name,
       email: user.email,
       role: user.role,
+      isActive: user.is_active,
     };
   }
 }

@@ -31,6 +31,13 @@ export const ApiErrorCode = {
   PENDING_APPROVALS: 'PENDING_APPROVALS',
   PERMIT_EXPIRED: 'PERMIT_EXPIRED',
   VERSION_CONFLICT: 'VERSION_CONFLICT',
+  CANNOT_MODIFY_SELF: 'CANNOT_MODIFY_SELF',
+  LAST_ADMIN: 'LAST_ADMIN',
+  REASSIGN_AREAS_FIRST: 'REASSIGN_AREAS_FIRST',
+  EMAIL_TAKEN: 'EMAIL_TAKEN',
+  CODE_TAKEN: 'CODE_TAKEN',
+  HAS_OPEN_PERMITS: 'HAS_OPEN_PERMITS',
+  HAS_ACTIVE_CHILDREN: 'HAS_ACTIVE_CHILDREN',
   CONFLICT: 'CONFLICT',
 
   // 422 Unprocessable Entity
@@ -82,50 +89,77 @@ export interface PaginatedResponse<T> {
 }
 
 // ---------------------------------------------------------------------------
-// DTOs for Reference Data
+// DTOs for Reference Data & Admin Management
 // ---------------------------------------------------------------------------
+
+export interface OwnedAreaSummaryDto {
+  id: string;
+  plantId: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+}
 
 export interface UserDto {
   id: string;
   name: string;
   email: string;
   role: UserRole;
-  plantId: string | null;
-  department?: string | null;
-  active: boolean;
-  createdAt: string;
+  isActive: boolean;
+  ownedAreas?: OwnedAreaSummaryDto[];
 }
 
 export interface PlantDto {
   id: string;
-  name: string;
   code: string;
-  address?: string | null;
-  active: boolean;
+  name: string;
+  address: string | null;
+  isActive: boolean;
+  areaCount?: number;
 }
 
 export interface AreaDto {
   id: string;
   plantId: string;
-  name: string;
   code: string;
-  areaOwnerId: string | null;
-  active: boolean;
-  areaOwner?: {
-    id: string;
-    name: string;
-    email: string;
-  } | null;
+  name: string;
+  ownerId: string;
+  ownerName?: string | null;
+  ownerEmail?: string | null;
+  plantName?: string;
+  plantCode?: string;
+  isActive: boolean;
+  equipmentCount?: number;
 }
 
 export interface EquipmentDto {
   id: string;
   areaId: string;
+  tag: string;
   name: string;
-  tagNo?: string;
-  tag?: string;
-  description?: string | null;
-  active: boolean;
+  isActive: boolean;
+  areaName?: string;
+  areaCode?: string;
+  plantId?: string;
+  plantName?: string;
+}
+
+export interface AdminAuditLogDto {
+  id: string;
+  actorId: string;
+  actorName: string;
+  actorEmail: string;
+  entityType: 'USER' | 'PLANT' | 'AREA' | 'EQUIPMENT' | string;
+  entityId: string;
+  action: string;
+  fromValue: Record<string, unknown> | null;
+  toValue: Record<string, unknown> | null;
+  createdAt: string;
+}
+
+export interface AdminActivityResponseDto {
+  items: AdminAuditLogDto[];
+  pagination: PaginationMeta;
 }
 
 // ---------------------------------------------------------------------------

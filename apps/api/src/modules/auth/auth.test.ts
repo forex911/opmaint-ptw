@@ -229,8 +229,50 @@ describe('Auth Module, Role Middleware, & Error Handling', () => {
       expect(meRes.body.user).toBeDefined();
       expect(meRes.body.user.email).toBe('requester@cmms.local');
       expect(meRes.body.user.role).toBe(UserRole.REQUESTER);
+      expect(meRes.body.user.isActive).toBe(true);
       expect(meRes.body.user.password).toBeUndefined();
       expect(meRes.body.user.password_hash).toBeUndefined();
+    });
+
+    it('rejects existing session and login attempts immediately with 401 when user is_active is set to false', async () => {
+      const pool = getPool();
+      const bcrypt = await import('bcryptjs');
+      const email = `deact.auth.${Date.now()}@cmms.local`;
+      const hash = await bcrypt.default.hash('TempAuthPass2026!', 10);
+      const inserted = await pool.query(
+        `INSERT INTO users (name, email, password_hash, role, is_active)
+         VALUES ('Temp Auth User', $1, $2, 'REQUESTER', true)
+         RETURNING id`,
+        [email, hash]
+      );
+      const userId = inserted.rows[0].id;
+
+      try {
+        const agent = request.agent(app);
+        await agent
+          .post('/api/auth/login')
+          .send({ email, password: 'TempAuthPass2026!' })
+          .expect(200);
+
+        await agent.get('/api/auth/me').expect(200);
+
+        // Deactivate user in DB
+        await pool.query('UPDATE users SET is_active = false WHERE id = $1', [userId]);
+
+        // Existing cookie immediately rejected with 401
+        const meAfter = await agent.get('/api/auth/me');
+        expect(meAfter.status).toBe(401);
+        expect(meAfter.body.error.code).toBe('UNAUTHORIZED');
+
+        // Fresh login fails with 401
+        const loginAfter = await request(app)
+          .post('/api/auth/login')
+          .send({ email, password: 'TempAuthPass2026!' });
+        expect(loginAfter.status).toBe(401);
+        expect(loginAfter.body.error.code).toBe('UNAUTHORIZED');
+      } finally {
+        await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+      }
     });
   });
 

@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.0] - 2026-11-27 - Admin User, Location & Admin Console Management
+
+### Added
+- **Database Migration `0004_admin_management_and_audit_log.sql`**:
+  - Soft-deactivation flags (`is_active BOOLEAN NOT NULL DEFAULT true`) + indexes across `users`, `plants`, `areas`, and `equipment`.
+  - Dedicated append-only `admin_audit_log` table with `BEFORE UPDATE OR DELETE` row trigger (`trg_admin_audit_log_immutable`), `BEFORE TRUNCATE` statement trigger (`trg_admin_audit_log_truncate`), and `ptw_app_user` least-privilege `REVOKE UPDATE, DELETE, TRUNCATE`.
+- **Backend Admin API (`/api/admin/*`)**:
+  - Full user lifecycle (`GET/POST/PATCH /api/admin/users`, `POST /api/admin/users/:id/reset-password`) protected by `requireAuth`, `requireRole('ADMIN')`, and `adminRateLimiter`.
+  - Full facility/location CRUD (`GET/POST/PATCH /api/admin/plants`, `/areas`, `/equipment`) and paginated `GET /api/admin/activity`.
+  - Pure conflict guards returning `409` (`CANNOT_MODIFY_SELF`, `LAST_ADMIN`, `REASSIGN_AREAS_FIRST`, `EMAIL_TAKEN`, `CODE_TAKEN`, `HAS_OPEN_PERMITS`, `HAS_ACTIVE_CHILDREN`).
+  - Transactional area owner handover (`D-028` amending `D-014`): reassigning an area owner updates `PENDING` `AREA_OWNER` approvals on non-terminal permits and appends `approver_reassigned` entries to `audit_log`.
+- **Frontend Administration Console (`/admin`)**:
+  - `AdminRoute.tsx` role guard, `/reference -> /admin` redirect, and updated `Shell.tsx` navigation (`Admin Console`).
+  - `AdminPage.tsx` with 5 responsive tabs (`Users`, `Plants`, `Areas`, `Equipment`, `Admin Activity`), create/edit/reset/deactivate modals, D-028 owner reassignment warnings, and 390px mobile cards.
+  - Admin-only `?includeInactive=true` location filtering on `PermitsListPage.tsx`.
+
+### Changed
+- Standardized shared & frontend DTOs on `isActive`, `ownerId`, `ownerName`, `ownerEmail`, and `tag`.
+- Enforced `is_active = true` per request in `requireAuth` and `auth.service.ts` (deactivated users immediately receive HTTP `401`).
+- Filtered public `/api/plants`, `/api/areas`, `/api/equipment` lookups to active entities and rejected inactive locations in `validateLocationConsistency` (`422`).
+- Updated `docs/DECISIONS.md` (`D-028`..`D-030`), `docs/API.md`, `docs/KNOWN_ISSUES.md`, `docs/PROGRESS.md`, `docs/AI_USAGE.md`, and `README.md`.
+
+---
+
 ## [0.7.1] - 2026-11-26 - Idempotent Database Seeding & Reference Data Unique Constraints
 
 ### Fixed

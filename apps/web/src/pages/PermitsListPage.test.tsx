@@ -29,7 +29,7 @@ describe('PermitsListPage Pagination Tests (Bug 3)', () => {
     });
 
     vi.spyOn(clientModule.api, 'getAreas').mockResolvedValue({
-      areas: [],
+      areas: [{ id: 'a-old', plantId: 'p-1', code: 'AREA-OLD', name: 'Old Area', ownerId: 'u-1', isActive: false }],
     });
 
     getPermitsSpy = vi.spyOn(clientModule.api, 'getPermits').mockImplementation(async (query = {}) => {
@@ -90,6 +90,12 @@ describe('PermitsListPage Pagination Tests (Bug 3)', () => {
       expect(screen.getByText('PTW-PAGE-1')).toBeDefined();
     });
 
+    // Admin permits list requests inactive areas so archived areas remain filterable
+    await waitFor(() => {
+      expect(clientModule.api.getAreas).toHaveBeenCalledWith(undefined, { includeInactive: true });
+      expect(screen.getByText(/Old Area \(AREA-OLD\) \[Inactive\]/i)).toBeDefined();
+    });
+
     const prevBtn = screen.getByRole('button', { name: /Previous/i });
     const nextBtn = screen.getByRole('button', { name: /Next/i });
 
@@ -147,7 +153,6 @@ describe('PermitsListPage Pagination Tests (Bug 3)', () => {
   });
 
   it('TanStack query key for permits includes the page number to ensure fresh cache per page', () => {
-    // Assert query key shape used in component: ['permits', { page, ... }]
     const queryKey1 = ['permits', { page: 1, status: '', type: '', search: '', mine: false, pendingMyApproval: false, areaId: '' }];
     const queryKey2 = ['permits', { page: 2, status: '', type: '', search: '', mine: false, pendingMyApproval: false, areaId: '' }];
 

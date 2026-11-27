@@ -1,4 +1,15 @@
 import type {
+  CreateUserInput,
+  UpdateUserInput,
+  ResetPasswordInput,
+  CreatePlantInput,
+  UpdatePlantInput,
+  CreateAreaInput,
+  UpdateAreaInput,
+  CreateEquipmentInput,
+  UpdateEquipmentInput,
+} from '@ptw/shared';
+import type {
   User,
   Plant,
   Area,
@@ -10,6 +21,7 @@ import type {
   DashboardStats,
   PermitWorkLog,
   AuditLogEntry,
+  AdminActivityResponse,
 } from '../types/index.js';
 
 export interface ApiErrorDetail {
@@ -82,16 +94,105 @@ export const api = {
   getMe: () => request<{ user: User }>('/api/auth/me'),
 
   // Reference Data
-  getPlants: () => request<{ plants: Plant[] }>('/api/plants'),
+  getPlants: (options?: { includeInactive?: boolean }) => {
+    const params = new URLSearchParams();
+    if (options?.includeInactive) params.set('includeInactive', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return request<{ plants: Plant[] }>(`/api/plants${query}`);
+  },
 
-  getAreas: (plantId?: string) => {
-    const query = plantId ? `?plantId=${encodeURIComponent(plantId)}` : '';
+  getAreas: (plantId?: string, options?: { includeInactive?: boolean }) => {
+    const params = new URLSearchParams();
+    if (plantId) params.set('plantId', plantId);
+    if (options?.includeInactive) params.set('includeInactive', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
     return request<{ areas: Area[] }>(`/api/areas${query}`);
   },
 
-  getEquipment: (areaId?: string) => {
-    const query = areaId ? `?areaId=${encodeURIComponent(areaId)}` : '';
+  getEquipment: (areaId?: string, options?: { includeInactive?: boolean }) => {
+    const params = new URLSearchParams();
+    if (areaId) params.set('areaId', areaId);
+    if (options?.includeInactive) params.set('includeInactive', 'true');
+    const query = params.toString() ? `?${params.toString()}` : '';
     return request<{ equipment: Equipment[] }>(`/api/equipment${query}`);
+  },
+
+  // Admin Management
+  getAdminUsers: () => request<{ users: User[] }>('/api/admin/users'),
+
+  createAdminUser: (body: CreateUserInput) =>
+    request<{ user: User }>('/api/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateAdminUser: (id: string, body: UpdateUserInput) =>
+    request<{ user: User }>(`/api/admin/users/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  resetAdminUserPassword: (id: string, body: ResetPasswordInput) =>
+    request<{ message: string }>(`/api/admin/users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  getAdminPlants: () => request<{ plants: Plant[] }>('/api/admin/plants'),
+
+  createAdminPlant: (body: CreatePlantInput) =>
+    request<{ plant: Plant }>('/api/admin/plants', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateAdminPlant: (id: string, body: UpdatePlantInput) =>
+    request<{ plant: Plant }>(`/api/admin/plants/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  getAdminAreas: (plantId?: string) => {
+    const query = plantId ? `?plantId=${encodeURIComponent(plantId)}` : '';
+    return request<{ areas: Area[] }>(`/api/admin/areas${query}`);
+  },
+
+  createAdminArea: (body: CreateAreaInput) =>
+    request<{ area: Area }>('/api/admin/areas', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateAdminArea: (id: string, body: UpdateAreaInput) =>
+    request<{ area: Area }>(`/api/admin/areas/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  getAdminEquipment: (areaId?: string) => {
+    const query = areaId ? `?areaId=${encodeURIComponent(areaId)}` : '';
+    return request<{ equipment: Equipment[] }>(`/api/admin/equipment${query}`);
+  },
+
+  createAdminEquipment: (body: CreateEquipmentInput) =>
+    request<{ equipment: Equipment }>('/api/admin/equipment', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  updateAdminEquipment: (id: string, body: UpdateEquipmentInput) =>
+    request<{ equipment: Equipment }>(`/api/admin/equipment/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
+  getAdminActivity: (query: { entityType?: string; page?: number; limit?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (query.entityType) params.set('entityType', query.entityType);
+    if (query.page) params.set('page', String(query.page));
+    if (query.limit) params.set('limit', String(query.limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return request<AdminActivityResponse>(`/api/admin/activity${qs}`);
   },
 
   // Permits List & Stats

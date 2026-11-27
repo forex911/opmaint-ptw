@@ -8,3 +8,4 @@ export * from './approvals.js';
 export * from './work-logs.js';
 export * from './extensions.js';
 export * from './audit.js';
+export * from './admin-audit.js';
