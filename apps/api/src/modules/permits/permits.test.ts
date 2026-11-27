@@ -274,8 +274,8 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
       expect(res.body.error.code).toBe('VERSION_CONFLICT');
     });
 
-    it('blocks another requester from editing someone elses permit with 403 FORBIDDEN', async () => {
-      // Area owner attempting to edit requester's draft
+    it('returns 404 when a non-owner attempts to edit a DRAFT permit (D-033)', async () => {
+      // Area owner attempting to edit requester's draft must receive 404 without leaking draft existence
       const res = await areaOwnerAgent
         .patch(`/api/permits/${testPermitId}`)
         .send({
@@ -283,8 +283,8 @@ describe('Permits Module: CRUD, Filters, Hierarchy, Stats, & Audit Timeline', ()
           workDescription: 'Unauthorized edit by area owner',
         });
 
-      expect(res.status).toBe(403);
-      expect(['NOT_PERMIT_OWNER', 'FORBIDDEN']).toContain(res.body.error.code);
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
     });
 
     it('updates draft permit successfully and increments version', async () => {

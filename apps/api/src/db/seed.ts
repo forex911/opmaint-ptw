@@ -461,7 +461,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
       {
         permitNo: 'PTW-2026-0007',
         type: PermitTypeCode.HOT_WORK,
-        status: PermitStatus.DRAFT, // Draft permit
+        status: PermitStatus.DRAFT, // Draft permit (visible only to requester@cmms.local and ADMIN per D-033)
         requesterId,
         contractorTeam: 'Tube Welders Chennai',
         workDescription: 'Heat exchanger tube leak repair and grinding',
@@ -575,6 +575,12 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
       },
     ];
 
+    const DEFAULT_SEED_PRECAUTIONS = [
+      'Area isolated and barricaded with warning tape',
+      'Continuous gas monitoring device zeroed and calibrated',
+      'Emergency escape route clear and unobstructed',
+    ];
+
     for (const p of permitDefinitions) {
       const mode = p.status === PermitStatus.DRAFT ? 'draft' : 'submit';
       const validation = validatePermitDetails(p.type, p.details, mode);
@@ -589,6 +595,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
 
       let permitId: string;
       const isNew = existingPermit.rows.length === 0;
+      const seedPrecautions = DEFAULT_SEED_PRECAUTIONS;
 
       if (!isNew) {
         permitId = existingPermit.rows[0].id;
@@ -597,8 +604,8 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
           UPDATE permits SET 
             type = $2, status = $3, contractor_team = $4, work_description = $5,
             plant_id = $6, area_id = $7, equipment_id = $8, planned_start = $9, planned_end = $10,
-            hazards = $11, ppe = $12, details = $13, version = $14, completion_notes = $15,
-            closed_at = $16, verified_by = $17, verified_at = $18
+            hazards = $11, ppe = $12, precautions = $13, details = $14, version = $15, completion_notes = $16,
+            closed_at = $17, verified_by = $18, verified_at = $19
           WHERE id = $1;
         `,
           [
@@ -614,6 +621,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
             p.plannedEnd,
             p.hazards,
             p.ppe,
+            seedPrecautions,
             JSON.stringify(p.details),
             1,
             p.completionNotes ?? null,
@@ -627,10 +635,10 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
           `
           INSERT INTO permits (
             permit_no, type, status, requester_id, contractor_team, work_description,
-            plant_id, area_id, equipment_id, planned_start, planned_end, hazards, ppe,
+            plant_id, area_id, equipment_id, planned_start, planned_end, hazards, ppe, precautions,
             details, version, completion_notes, closed_at, verified_by, verified_at
           ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19
+            $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20
           ) RETURNING id;
         `,
           [
@@ -647,6 +655,7 @@ export async function seedDatabase(customPool?: pkg.Pool): Promise<void> {
             p.plannedEnd,
             p.hazards,
             p.ppe,
+            seedPrecautions,
             JSON.stringify(p.details),
             1,
             p.completionNotes ?? null,

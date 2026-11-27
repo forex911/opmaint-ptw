@@ -18,6 +18,7 @@ export const createPermitSchema = z
     plannedEnd: z.string().datetime({ message: 'plannedEnd must be an ISO 8601 datetime' }),
     hazards: z.array(z.string()).optional().default([]),
     ppe: z.array(z.string()).optional().default([]),
+    precautions: z.array(z.string()).optional().default([]),
     details: z.record(z.unknown()).optional().default({}),
   })
   .refine(
@@ -33,6 +34,11 @@ export const updatePermitSchema = z
     version: z.number().int({ message: 'version must be an integer' }).positive({
       message: 'version is required for optimistic concurrency locking',
     }),
+    type: z
+      .enum(ALL_PERMIT_TYPE_CODES as unknown as [string, ...string[]], {
+        errorMap: () => ({ message: 'Invalid permit type' }),
+      })
+      .optional(),
     plantId: z.string().uuid({ message: 'Invalid plant ID format' }).optional(),
     areaId: z.string().uuid({ message: 'Invalid area ID format' }).optional(),
     equipmentId: z.string().uuid({ message: 'Invalid equipment ID format' }).nullable().optional(),
@@ -42,6 +48,7 @@ export const updatePermitSchema = z
     plannedEnd: z.string().datetime({ message: 'plannedEnd must be an ISO 8601 datetime' }).optional(),
     hazards: z.array(z.string()).optional(),
     ppe: z.array(z.string()).optional(),
+    precautions: z.array(z.string()).optional(),
     details: z.record(z.unknown()).optional(),
   })
   .strict({
@@ -51,7 +58,9 @@ export const updatePermitSchema = z
 export const listPermitsQuerySchema = z.object({
   status: z.enum(ALL_PERMIT_STATUSES as unknown as [string, ...string[]]).optional(),
   type: z.enum(ALL_PERMIT_TYPE_CODES as unknown as [string, ...string[]]).optional(),
+  plantId: z.string().uuid().optional(),
   areaId: z.string().uuid().optional(),
+  search: z.string().trim().max(200).optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   mine: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),

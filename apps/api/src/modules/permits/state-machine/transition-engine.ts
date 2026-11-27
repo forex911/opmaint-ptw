@@ -12,6 +12,7 @@ import type {
   TransitionRule,
 } from './types.js';
 import { TRANSITION_TABLE, getAllowedActions } from './transitions.js';
+import { assertPermitVisible } from '../permit-visibility.js';
 
 export interface TransitionOptions {
   now?: Date;
@@ -46,6 +47,7 @@ export function mapPermitRow(row: any): Permit {
     plannedEnd: new Date(row.planned_end),
     hazards: row.hazards || [],
     ppe: row.ppe || [],
+    precautions: row.precautions || [],
     details: row.details || {},
     version: row.version,
     createdAt: new Date(row.created_at),
@@ -128,6 +130,9 @@ export async function transition(
     }
 
     let permit = mapPermitRow(permitRes.rows[0]);
+
+    // DRAFT visibility invariant (D-033): non-owners/non-admins get 404 before any state/role error
+    assertPermitVisible(permit, actor);
 
     // 2. Fetch current approval rows
     const approvalsRes = await client.query(
@@ -258,17 +263,89 @@ export async function transition(
       now,
     };
 
-    for (const guard of matchedRule.guards) {
-      const guardResult = guard(ctx);
-      if (!guardResult.ok) {
+    if (action === 'submit') {
+      const validationFailures: Array<{
+        code: string;
+        message: string;
+        details?: Record<string, unknown>;
+      }> = [];
+
+      for (const guard of matchedRule.guards) {
+        const guardResult = guard(ctx);
+        if (!guardResult.ok) {
+          if (guardResult.code === 'NOT_PERMIT_OWNER' || guardResult.code === 'ROLE_NOT_ALLOWED') {
+            await rollback();
+            const allowedActions = getAllowedActions(permit, actor, approvals, now, { closedBy });
+            throw createGuardAppError(guardResult.code, guardResult.message, {
+              from: permit.status,
+              action,
+              allowedActions,
+            });
+          }
+          validationFailures.push({
+            code: guardResult.code,
+            message: guardResult.message,
+            details:
+              guardResult.details && typeof guardResult.details === 'object'
+                ? (guardResult.details as Record<string, unknown>)
+                : undefined,
+          });
+        }
+      }
+
+      if (validationFailures.length > 0) {
         await rollback();
         const allowedActions = getAllowedActions(permit, actor, approvals, now, { closedBy });
-        throw createGuardAppError(guardResult.code, guardResult.message, {
-          from: permit.status,
-          action,
-          allowedActions,
-          ...(guardResult.details && typeof guardResult.details === 'object' ? guardResult.details : {}),
-        });
+        const mergedFieldErrors: Record<string, string[]> = {};
+        const mergedOffendingReadings: unknown[] = [];
+
+        for (const f of validationFailures) {
+          const fe = f.details?.fieldErrors;
+          if (fe && typeof fe === 'object') {
+            for (const [key, msgs] of Object.entries(fe as Record<string, string[]>)) {
+              mergedFieldErrors[key] = mergedFieldErrors[key] || [];
+              mergedFieldErrors[key].push(...msgs);
+            }
+          }
+          if (Array.isArray(f.details?.offendingReadings)) {
+            mergedOffendingReadings.push(...(f.details.offendingReadings as unknown[]));
+          }
+        }
+
+        const primaryCode =
+          validationFailures.some((f) => f.code === 'UNSAFE_ATMOSPHERE') &&
+          validationFailures.every((f) => f.code === 'UNSAFE_ATMOSPHERE')
+            ? 'UNSAFE_ATMOSPHERE'
+            : validationFailures[0]!.code;
+
+        throw createGuardAppError(
+          primaryCode,
+          validationFailures.map((f) => f.message).join('; '),
+          {
+            from: permit.status,
+            action,
+            allowedActions,
+            ...mergedFieldErrors,
+            fields: mergedFieldErrors,
+            ...(mergedOffendingReadings.length > 0
+              ? { offendingReadings: mergedOffendingReadings }
+              : {}),
+          }
+        );
+      }
+    } else {
+      for (const guard of matchedRule.guards) {
+        const guardResult = guard(ctx);
+        if (!guardResult.ok) {
+          await rollback();
+          const allowedActions = getAllowedActions(permit, actor, approvals, now, { closedBy });
+          throw createGuardAppError(guardResult.code, guardResult.message, {
+            from: permit.status,
+            action,
+            allowedActions,
+            ...(guardResult.details && typeof guardResult.details === 'object' ? guardResult.details : {}),
+          });
+        }
       }
     }
 

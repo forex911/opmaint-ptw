@@ -380,6 +380,7 @@ const BUILTIN_PERMIT_TYPES: Record<string, PermitTypeConfig> = {
               valid: false,
               code: 'ATMOSPHERE_TEST_MISSING',
               message: 'Atmosphere test with tested_at timestamp is required for confined space submit.',
+              details: { field: 'atmosphere_test.tested_at' },
             };
           }
           const testedAtDate = new Date(test.tested_at);
@@ -388,6 +389,7 @@ const BUILTIN_PERMIT_TYPES: Record<string, PermitTypeConfig> = {
               valid: false,
               code: 'ATMOSPHERE_TEST_INVALID_DATE',
               message: 'Atmosphere test tested_at is not a valid date timestamp.',
+              details: { field: 'atmosphere_test.tested_at' },
             };
           }
           const diffMs = plannedStart.getTime() - testedAtDate.getTime();
@@ -398,6 +400,7 @@ const BUILTIN_PERMIT_TYPES: Record<string, PermitTypeConfig> = {
               valid: false,
               code: 'ATMOSPHERE_TEST_STALE',
               message: `Atmosphere test was conducted more than 60 minutes before planned start (${Math.round(diffMs / 60000)} mins prior). Re-testing is mandatory.`,
+              details: { field: 'atmosphere_test.tested_at' },
             };
           }
           if (diffMs < -sixtyMinutesMs) {
@@ -405,6 +408,7 @@ const BUILTIN_PERMIT_TYPES: Record<string, PermitTypeConfig> = {
               valid: false,
               code: 'ATMOSPHERE_TEST_IN_FUTURE',
               message: 'Atmosphere test timestamp cannot be far in the future relative to planned start.',
+              details: { field: 'atmosphere_test.tested_at' },
             };
           }
           return { valid: true };

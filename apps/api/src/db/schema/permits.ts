@@ -45,6 +45,10 @@ export const permits = pgTable(
       .array()
       .notNull()
       .default(sql`ARRAY[]::text[]`),
+    precautions: text('precautions')
+      .array()
+      .notNull()
+      .default(sql`ARRAY[]::text[]`),
     details: jsonb('details').$type<Record<string, unknown>>().notNull().default(sql`'{}'::jsonb`),
     version: integer('version').notNull().default(1),
     createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

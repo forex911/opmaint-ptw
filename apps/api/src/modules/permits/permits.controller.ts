@@ -56,7 +56,8 @@ export class PermitsController {
 
   async audit(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const data = await permitsService.getAuditTimeline(req.params.id as string);
+      const actor = { id: req.user!.id, role: req.user!.role as any };
+      const data = await permitsService.getAuditTimeline(req.params.id as string, actor);
       res.status(200).json(data);
     } catch (err) {
       next(err);
