@@ -818,4 +818,26 @@ This append-only log tracks every stage, unit of work, verification result, and 
   - `D-031`, `D-032`.
 - **Next**: Proceed to Stage 2 upon user confirmation.
 
+---
+
+## [2026-11-27 20:36] fix/draft-visibility-and-editing / Hotfix: Draft Visibility (Bug A) & Complete Draft Editing + Submit Flow (Bug B)
+- **Goal**: Resolve two manual QA hotfix bugs: (A) restrict `DRAFT` permits strictly to requester owner + `ADMIN` (`D-033` amending `D-020`), and (B) enable full multi-save draft editing across all fields (`/permits/:id/edit`), guarantee `'submit'` affordance on all owner drafts, and return/render per-field 422 submit validation errors.
+- **Done**:
+  - **Bug A (`D-033` Amending `D-020`)**:
+    - Created single canonical visibility helper `apps/api/src/modules/permits/permit-visibility.ts` (`canViewPermit`, `assertPermitVisible`, `buildPermitVisibilitySql`) returning `404 NOT_FOUND` on direct reads/mutations and filtering list, search (`?search=`), pagination totals, stats counts (`byStatus.DRAFT`, `total`, `expiringIn2h`, `pendingMyApproval`), audit timeline, work-logs, and transition engine.
+    - Updated `seed.ts` comments for seeded draft `PTW-2026-0007` and updated `README.md`, `docs/DECISIONS.md` (`D-033`), and `docs/API.md`.
+  - **Bug B (`Draft Editing & Field-Level Submit Guidance`)**:
+    - Added migration `0005_permits_precautions.sql` (`permits.precautions TEXT[]` + backfill), Drizzle schema column, shared DTOs (`PermitDto`, `CreatePermitRequest`, `UpdatePermitRequest` with `type` + `precautions`), and normalized `draft`/`submit` numeric & datetime schemas + `atmosphere_test.tested_at` rule field targeting in `@ptw/shared`.
+    - Updated `permits.schema.ts` and `permits.service.ts` to support all editable fields (`type`, `plantId`, `areaId`, `equipmentId`, `plannedStart`, `plannedEnd`, `workDescription`, `contractorTeam`, `hazards`, `ppe`, `precautions`, `details`) on `PATCH` with `audit_log` diffs; updated `transitions.ts`, `guards.ts`, and `transition-engine.ts` so `getAllowedActions` always advertises `'submit'` on owner `DRAFT`s and incomplete `submit` accumulates per-field errors (`equipmentId`, `plannedEnd`, `details.*`, `offendingReadings`) in `422` `error.details`.
+    - Extracted shared 5-step `PermitWizard.tsx`, created `/permits/:id/edit` (`EditPermitPage.tsx`), wired `PermitDetailPage.tsx` `Edit Draft` button to `/permits/:id/edit` + `"Edit Draft & Fix Fields"` on 422 submit failure, refreshed optimistic `version` from every response, and jumped directly to the earliest failing wizard step with inline field errors.
+  - Added regression suites: `draft-visibility-editing.test.ts`, `EditDraftPermit.test.tsx`, and `PermitDetailPage.test.tsx`.
+- **Verification**:
+  - `npm run build:all`, `npm run typecheck`, `npm run lint` -> 0 errors across all 3 workspaces.
+  - `npm test` on fresh `ptw_cmms_test` (`0000..0005` applied): `@ptw/shared` `9/9` (1 file), `@ptw/api` `251/251` (15 files), `@ptw/web` `50/50` (11 files); total `310 passed (310)`, 0 skipped, 0 failed.
+  - Migration `0005` + double idempotent `npm run db:seed` verified against existing dev DB (`ptw_cmms`).
+  - Live browser UI click-through NOT run by agent (covered via Vitest `jsdom` tests + 6-click manual QA checklist).
+- **Decisions**:
+  - `D-033`.
+- **Next**: Present hotfix report & 6-click manual checks and stop for user review.
+
 

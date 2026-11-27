@@ -153,12 +153,12 @@ All API endpoints are prefixed with `/api`. All error responses conform to the s
 - **Error Response**:
   - `401 UNAUTHORIZED`: `{ "error": { "code": "UNAUTHORIZED", "message": "Authentication required" } }` (or `"Invalid or expired authentication token"`).
 
-| `GET` | `/api/permits` | Authenticated | List permits with filters (status, type, areaId, from, to, mine, pendingMyApproval) and pagination |
-| `GET` | `/api/permits/stats` | Authenticated | Return aggregated counts (`byStatus`, `activeNow`, `expiringIn2h`, `pendingMyApproval`) |
-| `POST` | `/api/permits` | `REQUESTER`, `ADMIN` | Create new draft permit (permissive validation) |
-| `GET` | `/api/permits/:id` | Authenticated | Get permit details, approvals, work logs, and computed `allowedActions` |
-| `PATCH` | `/api/permits/:id` | Owner / Requester | Update permit (only `DRAFT` or `PENDING_APPROVAL` with approval reset) |
-| `POST` | `/api/permits/:id/submit` | Owner or `ADMIN` | Submit permit (strict validation, safe gas readings `UNSAFE_ATMOSPHERE`, creates approval rows) |
+| `GET` | `/api/permits` | Authenticated (Draft-scoped) | List permits visible to caller (`DRAFT` limited to owner/`ADMIN`, `PENDING_APPROVAL+` all users per `D-033`); filters (`status`, `type`, `plantId`, `areaId`, `search`, `from`, `to`, `mine`, `pendingMyApproval`) & pagination |
+| `GET` | `/api/permits/stats` | Authenticated (Draft-scoped) | Return aggregated counts visible to caller (`byStatus`, `activeNow`, `expiringIn2h`, `pendingMyApproval`; excludes others' `DRAFT`s per `D-033`) |
+| `POST` | `/api/permits` | `REQUESTER`, `SAFETY_OFFICER`, `ADMIN` | Create new draft permit (permissive validation, persists `precautions`) |
+| `GET` | `/api/permits/:id` | Authenticated (Draft-scoped) | Get permit details, approvals, work logs, precautions, and computed `allowedActions` (`404` for another user's `DRAFT`; `submit` always included for owner/`ADMIN` on `DRAFT`) |
+| `PATCH` | `/api/permits/:id` | Owner or `ADMIN` | Update any editable field (`type` in `DRAFT`, `plantId`, `areaId`, `equipmentId`, dates, description, crew, `hazards`, `ppe`, `precautions`, `details`; `404` if non-owner hits `DRAFT`, `403` on `PENDING_APPROVAL`) |
+| `POST` | `/api/permits/:id/submit` | Owner or `ADMIN` | Submit permit (returns `422` with per-field paths in `details` when incomplete/missing equipment or unsafe gas; `404` for non-owner on `DRAFT`) |
 | `POST` | `/api/permits/:id/approve` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | Approve a pending approval row (no self-approval) |
 | `POST` | `/api/permits/:id/reject` | `AREA_OWNER`, `SAFETY_OFFICER`, `ADMIN` | Reject permit with mandatory non-empty trimmed comment (no self-approval) |
 | `POST` | `/api/permits/:id/activate` | Owner or `ADMIN` | Activate approved permit when `now >= planned_start` and `now < planned_end` |

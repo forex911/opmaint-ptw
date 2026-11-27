@@ -189,6 +189,7 @@ export interface PermitDto {
   plannedEnd: string;
   hazards: string[];
   ppe: string[];
+  precautions?: string[];
   details: Record<string, unknown>;
   version: number;
   completionNotes: string | null;
@@ -284,11 +285,13 @@ export interface CreatePermitRequest {
   plannedEnd: string;
   hazards?: string[];
   ppe?: string[];
+  precautions?: string[];
   details?: Record<string, unknown>;
 }
 
 export interface UpdatePermitRequest {
   version: number;
+  type?: PermitTypeCode;
   plantId?: string;
   areaId?: string;
   equipmentId?: string | null;
@@ -298,6 +301,7 @@ export interface UpdatePermitRequest {
   plannedEnd?: string;
   hazards?: string[];
   ppe?: string[];
+  precautions?: string[];
   details?: Record<string, unknown>;
 }
 
@@ -369,6 +373,7 @@ export const permitDtoSchema = z.object({
   plannedEnd: z.union([z.string(), z.date()]).transform((v) => (typeof v === 'string' ? v : v.toISOString())),
   hazards: z.array(z.string()).default([]),
   ppe: z.array(z.string()).default([]),
+  precautions: z.array(z.string()).default([]),
   details: z.record(z.unknown()).default({}),
   version: z.number().int(),
   completionNotes: z.string().nullable().optional(),

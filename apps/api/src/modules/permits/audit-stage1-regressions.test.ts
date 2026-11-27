@@ -238,13 +238,14 @@ describe('Stage 1 Submission Audit Regressions (I12, I10, D1/I6, C7, K1)', () =>
       // Case 1: Permit owned by primary REQUESTER, contrasted against non-owner SAFETY_OFFICER and AREA_OWNER
       const pReqId = await createPermitFor(requesterAgent);
 
+      // submit on another user's DRAFT returns 404 NOT_FOUND per D-033 (draft visibility)
       const submitOtherSo = await safetyOfficerAgent.post(`/api/permits/${pReqId}/submit`).send({});
-      expect(submitOtherSo.status).toBe(403);
-      expect(submitOtherSo.body.error.code).toBe('NOT_PERMIT_OWNER');
+      expect(submitOtherSo.status).toBe(404);
+      expect(submitOtherSo.body.error.code).toBe('NOT_FOUND');
 
       const submitAo = await areaOwnerAgent.post(`/api/permits/${pReqId}/submit`).send({});
-      expect(submitAo.status).toBe(403);
-      expect(submitAo.body.error.code).toBe('ROLE_NOT_ALLOWED');
+      expect(submitAo.status).toBe(404);
+      expect(submitAo.body.error.code).toBe('NOT_FOUND');
 
       // owner requester submits -> 200
       await requesterAgent.post(`/api/permits/${pReqId}/submit`).send({}).expect(200);
@@ -329,8 +330,8 @@ describe('Stage 1 Submission Audit Regressions (I12, I10, D1/I6, C7, K1)', () =>
       const pSoId = await createPermitFor(safetyOfficerAgent);
 
       const submitNonOwnerReq = await requesterAgent.post(`/api/permits/${pSoId}/submit`).send({});
-      expect(submitNonOwnerReq.status).toBe(403);
-      expect(submitNonOwnerReq.body.error.code).toBe('NOT_PERMIT_OWNER');
+      expect(submitNonOwnerReq.status).toBe(404);
+      expect(submitNonOwnerReq.body.error.code).toBe('NOT_FOUND');
 
       await safetyOfficerAgent.post(`/api/permits/${pSoId}/submit`).send({}).expect(200);
       await areaOwnerAgent.post(`/api/permits/${pSoId}/approve`).send({}).expect(200);

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.8.2] - 2026-11-27 - Hotfix: Draft Visibility Restriction & Complete Draft Editing
+
+### Fixed
+- **Bug A — DRAFT Permit Privacy (`D-033` amending `D-020`)**:
+  - Centralized visibility enforcement in `apps/api/src/modules/permits/permit-visibility.ts` (`canViewPermit`, `assertPermitVisible`, `buildPermitVisibilitySql`) across permit list, `?search=` filtering, pagination counts, dashboard `/stats`, detail, audit timeline, work-logs, updates, and transitions.
+  - Restricted `DRAFT` permits (including seeded `PTW-2026-0007`) strictly to requester owner and `ADMIN`, returning HTTP `404 NOT_FOUND` on unauthorized accesses/mutations without leaking existence; permits from `PENDING_APPROVAL` onward remain universally readable.
+- **Bug B — Complete Draft Editing, Optimistic Version Refresh & Submit Field Guidance**:
+  - Added migration `0005_permits_precautions.sql` adding `permits.precautions TEXT[]` (backfilled from `permit_precautions`), enabled `type` (in `DRAFT`) and `precautions` on `POST`/`PATCH` with audit diffs, and added `?search=` / `?plantId=` support to `listPermitsQuerySchema`.
+  - Updated `getAllowedActions()` so `'submit'` is always available on owner/`ADMIN` `DRAFT` permits even when incomplete, and aggregated per-field `422` validation paths (including `equipmentId`, `plannedEnd`, and `details.*`) on incomplete `/submit`.
+  - Normalized empty number/datetime subfields in `@ptw/shared` (`draft` vs `submit`), refactored `CreatePermitPage` & new `/permits/:id/edit` (`EditPermitPage`) onto shared `PermitWizard.tsx` with full hydration, automatic `version` refresh on every response, step-jumping inline errors, and `PermitDetailPage` quick-fix navigation.
+
+### Added
+- Regression tests `draft-visibility-editing.test.ts` (API role x surface visibility matrix & multi-save full draft edit + submit flow), `EditDraftPermit.test.tsx`, and `PermitDetailPage.test.tsx` Bug B assertions (`310/310` total tests passing).
+
+---
+
 ## [0.8.1] - 2026-11-27 - Stage 1 Audit Remediation (Server Correctness, Ownership & Gas Thresholds)
 
 ### Fixed

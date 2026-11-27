@@ -141,6 +141,11 @@ export const guardWindowDates = (ctx: TransitionContext): GuardResult => {
       ok: false,
       code: 'INVALID_TIME_WINDOW',
       message: 'planned_end must be strictly greater than planned_start',
+      details: {
+        fieldErrors: {
+          plannedEnd: ['planned_end must be strictly greater than planned_start'],
+        },
+      },
     };
   }
   return { ok: true };
@@ -152,6 +157,11 @@ export const guardSubmitEquipment = (ctx: TransitionContext): GuardResult => {
       ok: false,
       code: 'VALIDATION_ERROR',
       message: 'Select equipment from the chosen area',
+      details: {
+        fieldErrors: {
+          equipmentId: ['Select equipment from the chosen area'],
+        },
+      },
     };
   }
   return { ok: true };
@@ -172,13 +182,21 @@ export const guardSubmitDetails = (ctx: TransitionContext): GuardResult => {
   );
 
   if (!validation.valid) {
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of validation.issues) {
+      const key = issue.path.join('.') || 'details';
+      fieldErrors[key] = fieldErrors[key] || [];
+      fieldErrors[key].push(issue.message);
+    }
+
     const unsafeIssues = validation.issues.filter((i) => i.code === 'UNSAFE_ATMOSPHERE');
-    if (unsafeIssues.length > 0) {
+    if (unsafeIssues.length > 0 && unsafeIssues.length === validation.issues.length) {
       return {
         ok: false,
         code: 'UNSAFE_ATMOSPHERE',
         message: `Unsafe atmospheric readings detected: ${unsafeIssues.map((i) => i.message).join('; ')}`,
         details: {
+          fieldErrors,
           offendingReadings: unsafeIssues.map((i) => ({
             field: i.path.join('.'),
             message: i.message,
@@ -195,6 +213,19 @@ export const guardSubmitDetails = (ctx: TransitionContext): GuardResult => {
       ok: false,
       code: 'VALIDATION_ERROR',
       message: `Permit details validation failed: ${errorMessages}`,
+      details: {
+        fieldErrors,
+        issues: validation.issues,
+        ...(unsafeIssues.length > 0
+          ? {
+              offendingReadings: unsafeIssues.map((i) => ({
+                field: i.path.join('.'),
+                message: i.message,
+                ...(i.details ?? {}),
+              })),
+            }
+          : {}),
+      },
     };
   }
   return { ok: true };

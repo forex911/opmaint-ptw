@@ -10,6 +10,11 @@ import { mapPermitRow } from './state-machine/transition-engine.js';
 import { getAllowedActions } from './state-machine/transitions.js';
 import { validateLocationConsistency } from './services/permit-validation.service.js';
 import { bulkExpireOverduePermits } from './services/expiry.service.js';
+import {
+  assertPermitVisible,
+  buildPermitVisibilitySql,
+  canViewPermit,
+} from './permit-visibility.js';
 import type { Permit, TransitionActor, PermitApproval } from './state-machine/types.js';
 
 export interface CreatePermitInput {
@@ -23,11 +28,13 @@ export interface CreatePermitInput {
   plannedEnd: string;
   hazards?: string[];
   ppe?: string[];
+  precautions?: string[];
   details?: Record<string, unknown>;
 }
 
 export interface UpdatePermitInput {
   version: number;
+  type?: string;
   plantId?: string;
   areaId?: string;
   equipmentId?: string | null;
@@ -37,13 +44,16 @@ export interface UpdatePermitInput {
   plannedEnd?: string;
   hazards?: string[];
   ppe?: string[];
+  precautions?: string[];
   details?: Record<string, unknown>;
 }
 
 export interface ListPermitsFilter {
   status?: PermitStatus;
   type?: string;
+  plantId?: string;
   areaId?: string;
+  search?: string;
   from?: string;
   to?: string;
   mine?: boolean;
@@ -91,11 +101,12 @@ export class PermitsService {
     const permitNo = await getNextPermitNumber(pool);
 
     // 4. Insert into database
+    const precautions = input.precautions || [];
     const insertRes = await pool.query(
       `INSERT INTO permits (
         permit_no, type, status, requester_id, contractor_team, work_description,
-        plant_id, area_id, equipment_id, planned_start, planned_end, hazards, ppe, details, version
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 1)
+        plant_id, area_id, equipment_id, planned_start, planned_end, hazards, ppe, precautions, details, version
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 1)
       RETURNING *`,
       [
         permitNo,
@@ -111,11 +122,22 @@ export class PermitsService {
         new Date(input.plannedEnd),
         input.hazards || [],
         input.ppe || [],
+        precautions,
         JSON.stringify(details),
       ]
     );
 
     const createdPermit = insertRes.rows[0];
+
+    if (precautions.length > 0) {
+      for (const text of precautions) {
+        await pool.query(
+          `INSERT INTO permit_precautions (permit_id, text, checked, checked_by)
+           VALUES ($1, $2, true, $3)`,
+          [createdPermit.id, text, actor.id]
+        );
+      }
+    }
 
     // 5. Audit log
     await pool.query(
@@ -151,6 +173,12 @@ export class PermitsService {
 
       const current = permitRes.rows[0];
 
+      // 1b. DRAFT visibility check (D-033): non-owners/non-admins receive 404 before any 403 leak
+      assertPermitVisible(
+        { id: current.id, status: current.status, requesterId: current.requester_id },
+        actor
+      );
+
       // 2. Ownership check: requester or admin
       if (current.requester_id !== actor.id && actor.role !== UserRole.ADMIN) {
         throw new AppError(403, 'NOT_PERMIT_OWNER', 'Only the permit owner or an administrator can edit this permit');
@@ -162,6 +190,14 @@ export class PermitsService {
           409,
           'ILLEGAL_TRANSITION',
           `Permit in status '${current.status}' cannot be updated; only DRAFT or PENDING_APPROVAL permits may be edited`
+        );
+      }
+
+      if (input.type !== undefined && input.type !== current.type && current.status !== PermitStatus.DRAFT) {
+        throw new AppError(
+          409,
+          'ILLEGAL_TRANSITION',
+          'Permit type can only be changed while in DRAFT status'
         );
       }
 
@@ -197,10 +233,11 @@ export class PermitsService {
         });
       }
 
-      // 7. Validate draft details schema
+      // 7. Validate draft details schema against the resolved type
+      const nextType = input.type !== undefined ? input.type : current.type;
       const nextDetails = input.details !== undefined ? input.details : current.details;
-      if (input.details) {
-        const validation = validatePermitDetails(current.type, nextDetails, 'draft', {
+      if (input.details !== undefined || input.type !== undefined) {
+        const validation = validatePermitDetails(nextType, nextDetails, 'draft', {
           plannedStart: nextStart,
           plannedEnd: nextEnd,
           now: new Date(),
@@ -259,17 +296,19 @@ export class PermitsService {
       const nextDescription = input.workDescription !== undefined ? input.workDescription : current.work_description;
       const nextHazards = input.hazards !== undefined ? input.hazards : current.hazards;
       const nextPpe = input.ppe !== undefined ? input.ppe : current.ppe;
+      const nextPrecautions = input.precautions !== undefined ? input.precautions : (current.precautions || []);
 
       const updateRes = await client.query(
         `UPDATE permits
-         SET plant_id = $1, area_id = $2, equipment_id = $3,
-             contractor_team = $4, work_description = $5,
-             planned_start = $6, planned_end = $7,
-             hazards = $8, ppe = $9, details = $10,
-             status = $11, version = version + 1, updated_at = NOW()
-         WHERE id = $12
+         SET type = $1, plant_id = $2, area_id = $3, equipment_id = $4,
+             contractor_team = $5, work_description = $6,
+             planned_start = $7, planned_end = $8,
+             hazards = $9, ppe = $10, precautions = $11, details = $12,
+             status = $13, version = version + 1, updated_at = NOW()
+         WHERE id = $14
          RETURNING *`,
         [
+          nextType,
           nextPlantId,
           nextAreaId,
           nextEquipmentId,
@@ -279,17 +318,32 @@ export class PermitsService {
           nextEnd,
           nextHazards,
           nextPpe,
+          nextPrecautions,
           JSON.stringify(nextDetails),
           nextStatus,
           id,
         ]
       );
 
+      if (input.precautions !== undefined) {
+        await client.query('DELETE FROM permit_precautions WHERE permit_id = $1', [id]);
+        for (const text of nextPrecautions) {
+          await client.query(
+            `INSERT INTO permit_precautions (permit_id, text, checked, checked_by)
+             VALUES ($1, $2, true, $3)`,
+            [id, text, actor.id]
+          );
+        }
+      }
+
       const updated = updateRes.rows[0];
 
       // Record one audit row per changed field (from/to) per D-021
       const fieldDiffs: Array<{ field: string; from: any; to: any }> = [];
 
+      if (input.type !== undefined && input.type !== current.type) {
+        fieldDiffs.push({ field: 'type', from: current.type, to: input.type });
+      }
       if (input.contractorTeam !== undefined && input.contractorTeam !== current.contractor_team) {
         fieldDiffs.push({ field: 'contractorTeam', from: current.contractor_team, to: input.contractorTeam });
       }
@@ -316,6 +370,9 @@ export class PermitsService {
       }
       if (input.ppe !== undefined && JSON.stringify(input.ppe) !== JSON.stringify(current.ppe)) {
         fieldDiffs.push({ field: 'ppe', from: current.ppe, to: input.ppe });
+      }
+      if (input.precautions !== undefined && JSON.stringify(input.precautions) !== JSON.stringify(current.precautions || [])) {
+        fieldDiffs.push({ field: 'precautions', from: current.precautions || [], to: input.precautions });
       }
       if (input.details !== undefined && JSON.stringify(input.details) !== JSON.stringify(current.details)) {
         fieldDiffs.push({ field: 'details', from: current.details, to: input.details });
@@ -379,6 +436,9 @@ export class PermitsService {
 
     const row = permitRes.rows[0];
     const permit: Permit = mapPermitRow(row);
+
+    // DRAFT visibility invariant (D-033): non-owners/non-admins receive 404
+    assertPermitVisible(permit, actor);
 
     // Fetch approvals
     const approvalsRes = await pool.query(
@@ -482,9 +542,10 @@ export class PermitsService {
     const limit = filter.limit || 20;
     const offset = (page - 1) * limit;
 
-    let whereClauses: string[] = ['1=1'];
-    const params: any[] = [];
-    let pIdx = 1;
+    const vis = buildPermitVisibilitySql(actor, 1, 'p');
+    let whereClauses: string[] = [vis.clause];
+    const params: any[] = [...vis.params];
+    let pIdx = 1 + vis.params.length;
 
     if (filter.status) {
       whereClauses.push(`p.status = $${pIdx++}`);
@@ -496,9 +557,22 @@ export class PermitsService {
       params.push(filter.type);
     }
 
+    if (filter.plantId) {
+      whereClauses.push(`p.plant_id = $${pIdx++}`);
+      params.push(filter.plantId);
+    }
+
     if (filter.areaId) {
       whereClauses.push(`p.area_id = $${pIdx++}`);
       params.push(filter.areaId);
+    }
+
+    if (filter.search) {
+      const searchParamIdx = pIdx++;
+      params.push(`%${filter.search}%`);
+      whereClauses.push(
+        `(p.permit_no ILIKE $${searchParamIdx} OR p.work_description ILIKE $${searchParamIdx} OR p.contractor_team ILIKE $${searchParamIdx})`
+      );
     }
 
     if (filter.from) {
@@ -618,9 +692,11 @@ export class PermitsService {
     // 1. Bulk expire overdue permits first
     await bulkExpireOverduePermits(pool);
 
-    // 2. Count by status
+    // 2. Count by status (scoped by canonical visibility rule D-033)
+    const visStats = buildPermitVisibilitySql(actor, 1, 'permits');
     const statusCountsRes = await pool.query(
-      `SELECT status, count(*)::integer AS count FROM permits GROUP BY status`
+      `SELECT status, count(*)::integer AS count FROM permits WHERE ${visStats.clause} GROUP BY status`,
+      visStats.params
     );
 
     const byStatus: Record<string, number> = {};
@@ -634,21 +710,24 @@ export class PermitsService {
     // 3. Active now
     const activeNow = byStatus[PermitStatus.ACTIVE] || 0;
 
-    // 4. Expiring in 2 hours
+    // 4. Expiring in 2 hours (scoped by canonical visibility rule D-033)
+    const visExp = buildPermitVisibilitySql(actor, 2, 'permits');
     const expiringRes = await pool.query(
       `SELECT count(*)::integer AS count 
        FROM permits 
        WHERE status = $1 
          AND planned_end > NOW() 
-         AND planned_end <= NOW() + INTERVAL '2 hours'`,
-      [PermitStatus.ACTIVE]
+         AND planned_end <= NOW() + INTERVAL '2 hours'
+         AND ${visExp.clause}`,
+      [PermitStatus.ACTIVE, ...visExp.params]
     );
     const expiringIn2h = expiringRes.rows[0].count;
 
-    // 5. Pending my approval: evaluate approve guard for PENDING_APPROVAL permits
+    // 5. Pending my approval: evaluate approve guard for visible PENDING_APPROVAL permits
+    const visPending = buildPermitVisibilitySql(actor, 2, 'permits');
     const pendingPermitsRes = await pool.query(
-      `SELECT * FROM permits WHERE status = $1`,
-      [PermitStatus.PENDING_APPROVAL]
+      `SELECT * FROM permits WHERE status = $1 AND ${visPending.clause}`,
+      [PermitStatus.PENDING_APPROVAL, ...visPending.params]
     );
 
     let pendingMyApproval = 0;
@@ -678,6 +757,7 @@ export class PermitsService {
       const now = new Date();
       for (const row of pendingPermitsRes.rows) {
         const permit = mapPermitRow(row);
+        if (!canViewPermit(permit, actor)) continue;
         const apps = approvalsByPermit.get(permit.id) || [];
         const actions = getAllowedActions(permit, actor, apps, now);
         if (actions.includes('approve')) {
@@ -699,16 +779,24 @@ export class PermitsService {
 
   /**
    * Retrieves ordered audit event timeline for a permit.
-   * Labels NULL actors as "System" per D-018.
+   * Labels NULL actors as "System" per D-018, enforcing DRAFT visibility per D-033.
    */
-  async getAuditTimeline(permitId: string): Promise<any> {
+  async getAuditTimeline(permitId: string, actor: TransitionActor): Promise<any> {
     const pool = getPool();
 
-    // Verify permit exists
-    const checkRes = await pool.query('SELECT id FROM permits WHERE id = $1', [permitId]);
+    // Verify permit exists and is visible to caller
+    const checkRes = await pool.query('SELECT id, status, requester_id FROM permits WHERE id = $1', [permitId]);
     if (checkRes.rows.length === 0) {
       throw AppError.notFound(`Permit with ID '${permitId}' not found`);
     }
+    assertPermitVisible(
+      {
+        id: checkRes.rows[0].id,
+        status: checkRes.rows[0].status,
+        requesterId: checkRes.rows[0].requester_id,
+      },
+      actor
+    );
 
     const res = await pool.query(
       `SELECT 
@@ -740,11 +828,19 @@ export class PermitsService {
   async addWorkLog(permitId: string, kind: string, note: string, actor: TransitionActor): Promise<any> {
     const pool = getPool();
 
-    // Check permit status
-    const permitRes = await pool.query('SELECT status FROM permits WHERE id = $1', [permitId]);
+    // Check permit existence, DRAFT visibility (D-033), and status
+    const permitRes = await pool.query('SELECT id, status, requester_id FROM permits WHERE id = $1', [permitId]);
     if (permitRes.rows.length === 0) {
       throw AppError.notFound(`Permit with ID '${permitId}' not found`);
     }
+    assertPermitVisible(
+      {
+        id: permitRes.rows[0].id,
+        status: permitRes.rows[0].status,
+        requesterId: permitRes.rows[0].requester_id,
+      },
+      actor
+    );
 
     if (permitRes.rows[0].status !== PermitStatus.ACTIVE) {
       throw new AppError(

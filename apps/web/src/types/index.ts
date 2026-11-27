@@ -96,7 +96,7 @@ export interface Permit {
   requesterId: string;
   plantId: string;
   areaId: string;
-  equipmentId: string;
+  equipmentId: string | null;
   contractorTeam: string;
   workDescription: string;
   plannedStart: string;

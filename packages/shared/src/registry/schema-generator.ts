@@ -14,43 +14,60 @@ function buildSubFieldZodSchema(
   mode: ValidationMode
 ): z.ZodTypeAny {
   let schema: z.ZodTypeAny;
+  const isStrictRequired = mode === 'submit' && Boolean(subField.required);
 
   switch (subField.type) {
     case 'text':
       schema = z.string().trim();
-      if (mode === 'submit' && subField.required) {
+      if (isStrictRequired) {
         schema = (schema as z.ZodString).min(1, `${subField.label} cannot be empty`);
       }
       break;
 
-    case 'number':
-      schema = z.coerce.number();
+    case 'number': {
+      let numSchema = z.coerce.number({
+        required_error: `${subField.label} is required`,
+        invalid_type_error: `${subField.label} must be a valid number`,
+      });
       if (typeof subField.min === 'number') {
-        schema = (schema as z.ZodNumber).min(
+        numSchema = numSchema.min(
           subField.min,
           `${subField.label} must be at least ${subField.min}`
         );
       }
       if (typeof subField.max === 'number') {
-        schema = (schema as z.ZodNumber).max(
+        numSchema = numSchema.max(
           subField.max,
           `${subField.label} must be at most ${subField.max}`
         );
       }
-      break;
+      schema = z.preprocess((val) => {
+        if (val === '' || val === null || val === undefined || (typeof val === 'number' && Number.isNaN(val))) {
+          return isStrictRequired ? undefined : null;
+        }
+        return val;
+      }, isStrictRequired ? numSchema : numSchema.nullable().optional());
+      return schema;
+    }
 
     case 'boolean':
       schema = z.boolean();
       break;
 
-    case 'datetime':
-      // Accept string datetime or Date object, ensure valid date
-      schema = z.union([
+    case 'datetime': {
+      const dtSchema = z.union([
         z.string().datetime({ offset: true }),
         z.string().regex(/^\d{4}-\d{2}-\d{2}T/, 'Must be an ISO datetime string'),
         z.date(),
       ]);
-      break;
+      schema = z.preprocess((val) => {
+        if (val === '' || val === null || val === undefined) {
+          return isStrictRequired ? undefined : null;
+        }
+        return val;
+      }, isStrictRequired ? dtSchema : dtSchema.nullable().optional());
+      return schema;
+    }
 
     case 'select':
       if (subField.options && subField.options.length > 0) {
@@ -76,42 +93,60 @@ function buildFieldZodSchema(
   mode: ValidationMode
 ): z.ZodTypeAny {
   let schema: z.ZodTypeAny;
+  const isStrictRequired = mode === 'submit' && Boolean(field.required);
 
   switch (field.type) {
     case 'text':
       schema = z.string().trim();
-      if (mode === 'submit' && field.required) {
+      if (isStrictRequired) {
         schema = (schema as z.ZodString).min(1, `${field.label} is required`);
       }
       break;
 
-    case 'number':
-      schema = z.coerce.number();
+    case 'number': {
+      let numSchema = z.coerce.number({
+        required_error: `${field.label} is required`,
+        invalid_type_error: `${field.label} must be a valid number`,
+      });
       if (typeof field.min === 'number') {
-        schema = (schema as z.ZodNumber).min(
+        numSchema = numSchema.min(
           field.min,
           `${field.label} must be at least ${field.min}`
         );
       }
       if (typeof field.max === 'number') {
-        schema = (schema as z.ZodNumber).max(
+        numSchema = numSchema.max(
           field.max,
           `${field.label} must be at most ${field.max}`
         );
       }
-      break;
+      schema = z.preprocess((val) => {
+        if (val === '' || val === null || val === undefined || (typeof val === 'number' && Number.isNaN(val))) {
+          return isStrictRequired ? undefined : null;
+        }
+        return val;
+      }, isStrictRequired ? numSchema : numSchema.nullable().optional());
+      return schema;
+    }
 
     case 'boolean':
       schema = z.boolean();
       break;
 
-    case 'datetime':
-      schema = z.union([
+    case 'datetime': {
+      const dtSchema = z.union([
         z.string().datetime({ offset: true }),
         z.string().regex(/^\d{4}-\d{2}-\d{2}T/, 'Must be an ISO datetime string'),
         z.date(),
       ]);
-      break;
+      schema = z.preprocess((val) => {
+        if (val === '' || val === null || val === undefined) {
+          return isStrictRequired ? undefined : null;
+        }
+        return val;
+      }, isStrictRequired ? dtSchema : dtSchema.nullable().optional());
+      return schema;
+    }
 
     case 'select':
       if (field.options && field.options.length > 0) {
@@ -264,12 +299,13 @@ export function validatePermitDetails(
           };
         }
 
+        const targetField = result.details?.['field'];
         return {
           valid: false,
           data: validatedData,
           issues: [
             {
-              path: ['details', rule.id],
+              path: typeof targetField === 'string' ? targetField.split('.') : ['details', rule.id],
               message: result.message ?? `Rule validation failed: ${rule.description}`,
               code: result.code ?? 'TYPE_RULE_FAILED',
               details: result.details,

@@ -152,12 +152,16 @@ export function getAllowedActions(
       now,
     };
 
-    // For getAllowedActions check, we evaluate guards that do not require explicit invocation payloads
-    // (e.g. comment is supplied at action execution time, not during UI affordance calculation)
+    // For getAllowedActions check, we evaluate role/ownership & workflow eligibility guards,
+    // skipping execution-time payload guards and submit-time field completeness validators so
+    // an owner always sees Submit on their DRAFT (receiving 422 field-level guidance if incomplete).
     const isAllowed = rule.guards.every((guard) => {
       if (
         guard === guardMandatoryComment ||
-        guard === guardMandatoryCompletionNotes
+        guard === guardMandatoryCompletionNotes ||
+        guard === guardWindowDates ||
+        guard === guardSubmitEquipment ||
+        guard === guardSubmitDetails
       ) {
         return true;
       }
